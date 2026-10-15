@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EcoAnalytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f5f0e6; --card:#fffdf8; --ink:#2a2119; --ink-dim:#6d6155; --line:#e3d9c8;
+  --moss:#4c6a35; --moss-soft:#e3ead8; --clay:#b45f35; --clay-soft:#f5e1d4;
+  --wheat:#c99a2e; --wheat-soft:#f6ecd0; --water:#2f7393; --water-soft:#dcebf2;
+  --good:#3f7a3a; --warn:#b8862a; --bad:#b24a33;
+  --radius:14px; --shadow:0 1px 0 rgba(42,33,25,.04),0 6px 18px -12px rgba(42,33,25,.25);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#1b1713; --card:#242019; --ink:#efe6d8; --ink-dim:#ab9e8d; --line:#3a3229;
+  --moss:#93b46f; --moss-soft:#2c3523; --clay:#e08a5c; --clay-soft:#3d2a20;
+  --wheat:#e2b955; --wheat-soft:#3a311c; --water:#6cb3d4; --water-soft:#1c3038;
+  --good:#8cc47f; --warn:#e2b955; --bad:#ec8a72; --shadow:none;}}
+:root[data-theme="dark"]{
+  --paper:#1b1713; --card:#242019; --ink:#efe6d8; --ink-dim:#ab9e8d; --line:#3a3229;
+  --moss:#93b46f; --moss-soft:#2c3523; --clay:#e08a5c; --clay-soft:#3d2a20;
+  --wheat:#e2b955; --wheat-soft:#3a311c; --water:#6cb3d4; --water-soft:#1c3038;
+  --good:#8cc47f; --warn:#e2b955; --bad:#ec8a72; --shadow:none;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 64px}
+header{padding:28px 0 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{font-size:2.1rem}
+header h1 span{color:var(--moss)}
+header p{margin:4px 0 0;color:var(--ink-dim)}
+.theme{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer;font:inherit;font-size:.85rem}
+
+.loc{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:grid;gap:12px}
+.loc-top{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center}
+.loc-label{font-weight:600;font-size:1.05rem}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.chip.hi{background:var(--moss-soft);color:var(--good)} .chip.med{background:var(--wheat-soft);color:var(--warn)} .chip.lo{background:var(--clay-soft);color:var(--bad)}
+.loc-form{display:flex;gap:8px;flex-wrap:wrap}
+input,select{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--moss);outline-offset:1px}
+.loc-form input{flex:1 1 260px}
+button.btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;background:var(--moss);color:#fff}
+button.btn.ghost{background:transparent;color:var(--moss);border:1px solid var(--moss)}
+button.btn:disabled{opacity:.5;cursor:wait}
+.vpn{border:1px solid var(--clay);background:var(--clay-soft);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.vpn strong{color:var(--bad)}
+.vpn ul{margin:6px 0 0;padding-left:18px}
+
+nav.tabs{display:flex;gap:4px;margin:22px 0 14px;overflow-x:auto;border-bottom:1px solid var(--line)}
+nav.tabs button{font:inherit;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--ink-dim);padding:10px 12px;cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:var(--ink);border-color:var(--moss)}
+section{display:none} section.on{display:block}
+.grid{display:grid;gap:14px}
+.g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.g4{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);min-width:0}
+.card h3{font-size:1.1rem;margin-bottom:8px}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);font-weight:600}
+.big{font-size:1.75rem;line-height:1.1;margin:4px 0;overflow-wrap:anywhere}
+.dim{color:var(--ink-dim)} .small{font-size:.84rem}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.band{position:relative;height:8px;border-radius:99px;background:var(--line);margin:12px 0 6px}
+.band .ok{position:absolute;top:0;bottom:0;background:var(--moss-soft);border:1px solid var(--moss);border-radius:99px}
+.band .dot{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--card)}
+.band .rng{position:absolute;top:2px;bottom:2px;background:var(--ink-dim);opacity:.35;border-radius:99px}
+.status-low{color:var(--bad)} .status-high{color:var(--warn)} .status-ok{color:var(--good)}
+.texture{display:flex;height:22px;border-radius:8px;overflow:hidden;margin:10px 0 6px;font-size:.72rem;font-weight:600;color:#fff}
+.texture div{display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden}
+.notes{margin:0;padding-left:18px;color:var(--ink-dim);font-size:.88rem}
+.notes li{margin:4px 0}
+details summary{cursor:pointer;font-weight:600;color:var(--moss)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.form-grid label{display:grid;gap:4px;font-size:.82rem;color:var(--ink-dim)}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-dim);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.r,th.r{text-align:right}
+.barcell{min-width:120px}
+.hbar{height:10px;border-radius:99px;background:var(--moss)}
+.hbar.neg{background:var(--clay)}
+.addbtn{font:inherit;font-size:.8rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:3px 8px;cursor:pointer}
+.season-tag{font-size:.72rem;font-weight:600;border-radius:6px;padding:1px 6px}
+.season-tag.warm{background:var(--clay-soft);color:var(--clay)} .season-tag.cool{background:var(--water-soft);color:var(--water)}
+
+.plan-row{display:grid;grid-template-columns:1fr 110px 36px;gap:8px;margin-bottom:8px}
+.plan-row button{border:1px solid var(--line);background:var(--paper);border-radius:10px;cursor:pointer;color:var(--ink-dim);font-size:1.1rem}
+.kpi .big.pos{color:var(--good)} .kpi .big.neg{color:var(--bad)}
+.stack{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:10px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--ink-dim)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg text{fill:var(--ink-dim);font:11px "IBM Plex Sans",sans-serif}
+.loading{position:fixed;inset:auto 16px 16px auto;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:10px;font-size:.88rem;display:none}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-dim)}
+footer{margin-top:40px;color:var(--ink-dim);font-size:.8rem}
+@media (max-width:560px){header h1{font-size:1.7rem}.big{font-size:1.5rem}.plan-row{grid-template-columns:1fr 80px 36px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Eco<span>Analytics</span></h1>
+    <p>Your soil, your season, your dollars. Backyard growing, measured.</p>
+  </div>
+  <button class="theme" id="themeBtn" aria-label="Toggle dark mode">Theme</button>
+</header>
+
+<div class="loc" id="locBox">
+  <div class="loc-top">
+    <div><div class="eyebrow">Garden location</div><div class="loc-label" id="locLabel">Finding you…</div></div>
+    <span class="chip" id="locChip" hidden></span>
+  </div>
+  <div class="vpn" id="vpnBox" hidden></div>
+  <div class="loc-form">
+    <input id="addrInput" placeholder="Street address or ZIP code (most accurate)" autocomplete="street-address">
+    <button class="btn" id="addrBtn">Use this</button>
+    <button class="btn ghost" id="gpsBtn">Use device location</button>
+  </div>
+  <div class="small dim" id="locHint">Soil is looked up from USDA soil surveys around this point. The more exact the location, the tighter the estimate.</div>
+</div>
+
+<nav class="tabs" role="tablist">
+  <button class="on" data-tab="soil">Soil</button>
+  <button data-tab="crops">Crop value</button>
+  <button data-tab="roi">Garden ROI</button>
+  <button data-tab="water">Water cost</button>
+  <button data-tab="fert">Fertilizer plan</button>
+</nav>
+
+<!-- SOIL ------------------------------------------------------------------>
+<section id="tab-soil" class="on">
+  <div class="grid g4" id="seasonTiles"></div>
+  <div style="height:14px"></div>
+  <div class="grid g3" id="soilCards"><div class="empty card">Soil profile appears once your location is set.</div></div>
+  <div style="height:14px"></div>
+  <div class="grid g3">
+    <div class="card" id="textureCard"></div>
+    <div class="card">
+      <h3>How sure are these numbers?</h3>
+      <ul class="notes" id="soilNotes"></ul>
+      <p class="small dim" id="soilSources"></p>
+    </div>
+    <div class="card">
+      <details id="testDetails">
+        <summary>Have a soil test? Enter it</summary>
+        <p class="small dim">Real lab or kit numbers replace the estimates everywhere. Leave blank what you don't have.</p>
+        <div class="form-grid">
+          <label>pH<input type="number" step="0.1" id="t_ph"></label>
+          <label>Organic matter %<input type="number" step="0.1" id="t_organic_matter_pct"></label>
+          <label>Phosphorus ppm<input type="number" step="1" id="t_p_ppm"></label>
+          <label>Potassium ppm<input type="number" step="1" id="t_k_ppm"></label>
+          <label>CEC<input type="number" step="0.1" id="t_cec"></label>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px"><button class="btn" id="testApply">Apply test</button><button class="btn ghost" id="testClear">Clear</button></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CROPS ----------------------------------------------------------------->
+<section id="tab-crops">
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap"><h3>Which crops pay best per square foot here</h3>
+      <span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil and season.</span></div>
+    <div class="table-wrap"><table id="rankTable"></table></div>
+  </div>
+</section>
+
+<!-- ROI ------------------------------------------------------------------->
+<section id="tab-roi">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+    <div class="card">
+      <h3>Your garden plan</h3>
+      <div id="planRows"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn ghost" id="addRow">+ Add bed</button>
+        <span class="small dim" id="planArea" style="align-self:center"></span>
+      </div>
+      <div class="form-grid" style="margin-top:14px">
+        <label>Water rate ($ / 1,000 gal)<input type="number" step="0.25" id="waterRate" value="6"></label>
+        <label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
+        <label>One-time setup ($)<input type="number" step="10" id="setupCost" value="0"></label>
+        <label>Spread setup over (yrs)<input type="number" step="1" min="1" id="setupYears" value="5"></label>
+        <label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;color:var(--ink)"><input type="checkbox" id="organicOnly"> Organic fertilizers only</label>
+      </div>
+      <button class="btn" id="runPlan" style="margin-top:12px">Recalculate</button>
+    </div>
+    <div class="grid" style="align-content:start">
+      <div class="grid" id="roiKpis" style="grid-template-columns:repeat(2,minmax(0,1fr))"></div>
+      <div class="card"><h3>Where the money goes</h3><div id="costStack"></div></div>
+      <div class="card"><h3>By bed</h3><div class="table-wrap"><table id="roiTable"></table></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WATER ----------------------------------------------------------------->
+<section id="tab-water">
+  <div class="grid g4" id="waterKpis"></div>
+  <div style="height:14px"></div>
+  <div class="card"><h3>Irrigation you'll need beyond rainfall</h3>
+    <p class="small dim" style="margin:0">From the last three years of local weather: crop water use (evapotranspiration) minus the rain your soil holds onto.</p>
+    <div id="waterChart"></div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="card"><h3>Rain vs. what plants use</h3><div id="rainChart"></div></div>
+</section>
+
+<!-- FERTILIZER ------------------------------------------------------------>
+<section id="tab-fert">
+  <div class="grid g4" id="fertKpis"></div>
+  <div style="height:14px"></div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+    <div class="card"><h3>Cheapest shopping list</h3>
+      <p class="small dim" style="margin-top:0">Picks whole bags to minimise what you spend at the store, while meeting this plan's nitrogen, phosphorus and potassium needs.</p>
+      <div class="table-wrap"><table id="fertTable"></table></div>
+    </div>
+    <div class="card"><h3>Soil fixes</h3><div id="soilFixes"></div></div>
+    <div class="card"><h3>Nutrient balance (lb)</h3><div id="nutrientChart"></div><ul class="notes" id="fertNotes"></ul></div>
+  </div>
+</section>
+
+<footer>
+  Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather, US Census geocoder, Zippopotam.us, ip-api.com.
+  Prices and yields are typical US values; edit <span class="num">backend/data/*.json</span> to match yours.
+</footer>
+</div>
+<div class="loading" id="loading">Researching your soil…</div>
+
+<script>
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const money = (v, d=2) => v == null ? "—" : (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmt = (v, d=1) => v == null ? "—" : Number(v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:0});
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const store = {
+  get(k, d){ try { const v = localStorage.getItem("eco:"+k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem("eco:"+k, JSON.stringify(v)); } catch {} },
+};
+
+let CROPS = [], LOCATION = null, LAST = null;
+let PLAN = store.get("plan", [{crop:"tomato",sqft:16},{crop:"lettuce",sqft:8},{crop:"basil",sqft:4},{crop:"pepper",sqft:4}]);
+let SOILTEST = store.get("soiltest", null);
+
+// ---- theme ---------------------------------------------------------------
+(function(){
+  const t = store.get("theme", null);
+  if (t) document.documentElement.dataset.theme = t;
+  $("#themeBtn").onclick = () => {
+    const dark = document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+    store.set("theme", document.documentElement.dataset.theme);
+    if (LAST) renderAll(LAST);
+  };
+})();
+
+// ---- tabs ----------------------------------------------------------------
+$$("nav.tabs button").forEach(b => b.onclick = () => {
+  $$("nav.tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $$("section").forEach(s => s.classList.toggle("on", s.id === "tab-" + b.dataset.tab));
+});
+
+// ---- API -----------------------------------------------------------------
+async function api(path, body){
+  const r = await fetch(path, body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Request failed");
+  return j;
+}
+function busy(on, msg){ const l = $("#loading"); l.textContent = msg || "Researching your soil…"; l.style.display = on ? "block" : "none";
+  $$("button.btn").forEach(b => b.disabled = on); }
+
+// ---- location ------------------------------------------------------------
+function showLocation(loc){
+  LOCATION = loc; store.set("location", loc);
+  $("#locLabel").textContent = loc.label || `${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)}`;
+  const chip = $("#locChip"); chip.hidden = false;
+  const names = {device:"Device GPS", address:"Street address", zip:"ZIP code", ip:"Internet connection", fallback:"Rough estimate"};
+  const cls = loc.precision_km <= 0.5 ? "hi" : loc.precision_km <= 5 ? "med" : "lo";
+  chip.className = "chip " + cls;
+  chip.textContent = `${names[loc.source] || loc.source} · ±${loc.precision_km < 1 ? Math.round(loc.precision_km*1000)+" m" : Math.round(loc.precision_km)+" km"}`;
+  const v = $("#vpnBox");
+  if (loc.vpn_suspected){
+    v.hidden = false;
+    v.innerHTML = `<strong>Looks like you're on a VPN.</strong> Your internet connection points somewhere else, so soil from that spot would be wrong. Enter your address or ZIP, or use device location.<ul>${loc.vpn_reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`;
+  } else v.hidden = true;
+}
+
+async function locate(body, msg){
+  busy(true, msg || "Finding your garden…");
+  try {
+    const loc = await api("/api/locate", body);
+    showLocation(loc);
+    if (loc.vpn_suspected){ busy(false); $("#addrInput").focus(); return; }
+    await analyze();
+  } catch(e){ alert(e.message); }
+  finally { busy(false); }
+}
+
+$("#addrBtn").onclick = () => {
+  const v = $("#addrInput").value.trim();
+  if (!v) return $("#addrInput").focus();
+  locate(/^\d{5}(-\d{4})?$/.test(v) ? {method:"zip", zip:v.slice(0,5)} : {method:"address", address:v}, "Looking up that address…");
+};
+$("#addrInput").onkeydown = e => { if (e.key === "Enter") $("#addrBtn").click(); };
+$("#gpsBtn").onclick = () => {
+  if (!navigator.geolocation) return alert("This browser can't share its location.");
+  busy(true, "Waiting for device location…");
+  navigator.geolocation.getCurrentPosition(
+    p => locate({method:"device", lat:p.coords.latitude, lon:p.coords.longitude}),
+    () => { busy(false); alert("Location permission was denied. Enter an address or ZIP instead."); },
+    {enableHighAccuracy:true, timeout:15000});
+};
+
+// ---- analysis ------------------------------------------------------------
+function planBody(){
+  return {
+    location: LOCATION, plan: PLAN.filter(p => p.sqft > 0),
+    soil_test: SOILTEST,
+    water_rate: +$("#waterRate").value || 0,
+    irrigation: $("#irrigation").value,
+    setup_cost: +$("#setupCost").value || 0,
+    setup_years: Math.max(1, +$("#setupYears").value || 1),
+    organic_only: $("#organicOnly").checked,
+  };
+}
+async function analyze(){
+  if (!LOCATION) return;
+  busy(true);
+  try { LAST = await api("/api/analyze", planBody()); renderAll(LAST); }
+  catch(e){ alert(e.message); }
+  finally { busy(false); }
+}
+function saveSettings(){ store.set("settings", {water:$("#waterRate").value, irr:$("#irrigation").value, setup:$("#setupCost").value, years:$("#setupYears").value, org:$("#organicOnly").checked}); }
+$("#runPlan").onclick = () => { saveSettings(); store.set("plan", PLAN); analyze(); };
+
+// ---- soil test -----------------------------------------------------------
+const TEST_KEYS = ["ph","organic_matter_pct","p_ppm","k_ppm","cec"];
+function fillTest(){ TEST_KEYS.forEach(k => $("#t_"+k).value = SOILTEST && SOILTEST[k] != null ? SOILTEST[k] : ""); }
+$("#testApply").onclick = () => {
+  const t = {}; TEST_KEYS.forEach(k => { const v = $("#t_"+k).value; if (v !== "") t[k] = +v; });
+  SOILTEST = Object.keys(t).length ? t : null; store.set("soiltest", SOILTEST); analyze();
+};
+$("#testClear").onclick = () => { SOILTEST = null; store.set("soiltest", null); fillTest(); analyze(); };
+
+// ---- plan editor ---------------------------------------------------------
+function renderPlan(){
+  const opts = CROPS.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  $("#planRows").innerHTML = PLAN.map((p,i) => `
+    <div class="plan-row">
+      <select data-i="${i}" data-f="crop" aria-label="Crop">${opts}</select>
+      <input type="number" min="1" step="1" data-i="${i}" data-f="sqft" value="${p.sqft}" aria-label="Square feet">
+      <button data-del="${i}" aria-label="Remove">×</button>
+    </div>`).join("");
+  $$("#planRows select").forEach(s => s.value = PLAN[s.dataset.i].crop);
+  $$("#planRows [data-f]").forEach(el => el.onchange = () => {
+    PLAN[el.dataset.i][el.dataset.f] = el.dataset.f === "sqft" ? +el.value : el.value; store.set("plan", PLAN); updateArea(); });
+  $$("#planRows [data-del]").forEach(b => b.onclick = () => { PLAN.splice(+b.dataset.del, 1); store.set("plan", PLAN); renderPlan(); });
+  updateArea();
+}
+function updateArea(){ $("#planArea").textContent = `${fmt(PLAN.reduce((a,p)=>a+(+p.sqft||0),0),0)} sq ft planted`; }
+$("#addRow").onclick = () => { PLAN.push({crop:"lettuce", sqft:8}); store.set("plan", PLAN); renderPlan(); };
+
+// ---- rendering -----------------------------------------------------------
+function renderAll(d){
+  renderSeason(d.climate); renderSoil(d.soil); renderRanking(d.ranking);
+  renderROI(d.roi); renderWater(d.roi.water); renderFert(d.roi.fertilizer, d.soil);
+}
+
+function tile(label, value, sub, cls=""){
+  return `<div class="card kpi"><div class="eyebrow">${label}</div><div class="big num ${cls}">${value}</div><div class="small dim">${sub||""}</div></div>`;
+}
+
+function renderSeason(c){
+  $("#seasonTiles").innerHTML =
+    tile("Frost-free season", `${c.frost_free_days} days`, c.last_spring_frost ? `${c.last_spring_frost} → ${c.first_fall_frost}` : "No hard frost most years") +
+    tile("Growing degree days", fmt(c.season_gdd50,0), "Heat for warm crops (base 50°F)") +
+    tile("Cool-crop days", `${c.cool_growing_days}`, "Days averaging 40–75°F") +
+    tile("Yearly rainfall", `${fmt(c.annual_precip_in)} in`, esc(c.source));
+}
+
+const PRETTY = {ph:"Soil pH", organic_matter_pct:"Organic matter", cec:"Nutrient holding (CEC)",
+  p_ppm:"Phosphorus", k_ppm:"Potassium", total_n_gkg:"Total nitrogen"};
+const AXIS = {ph:[4.5,8.5], organic_matter_pct:[0,10], cec:[0,40], p_ppm:[0,100], k_ppm:[0,300]};
+const WHAT = {
+  ph:{low:"Acidic: nutrients lock up. Lime fixes it (see Fertilizer plan).", high:"Alkaline: iron and phosphorus get harder for roots to reach.", ok:"In the sweet spot for most vegetables."},
+  organic_matter_pct:{low:"Below garden level. Compost raises it, holds water and feeds soil life.", ok:"Healthy garden-level organic matter.", high:"Very rich."},
+  cec:{low:"Sandy, low-holding soil: feed little and often.", ok:"Holds nutrients well.", high:"High-holding soil: nutrients stick around."},
+  p_ppm:{low:"Likely low: needs phosphorus.", ok:"Probably adequate.", high:"Probably plenty; skip extra phosphorus."},
+  k_ppm:{low:"Likely low: needs potassium.", ok:"Probably adequate.", high:"Probably plenty."},
+};
+const CONF = {high:["hi","High confidence"], medium:["med","Medium confidence"], low:["lo","Low confidence"]};
+const SRC = {ssurgo:"USDA soil survey", soilgrids:"SoilGrids map", regional:"Regional average", derived:"Estimated", soil_test:"Your soil test"};
+
+function soilCard(v){
+  const [lo,hi] = AXIS[v.key] || [0, Math.max(v.value*2,1)];
+  const pct = x => Math.max(0, Math.min(100, (x-lo)/(hi-lo)*100));
+  const ideal = v.ideal ? `<div class="ok" style="left:${pct(v.ideal[0])}%;width:${pct(v.ideal[1])-pct(v.ideal[0])}%"></div>` : "";
+  const rng = v.low != null && v.high != null && v.high > v.low ? `<div class="rng" style="left:${pct(v.low)}%;width:${pct(v.high)-pct(v.low)}%"></div>` : "";
+  const col = v.status === "low" ? css("--bad") : v.status === "high" ? css("--warn") : css("--good");
+  const [cc, cl] = CONF[v.confidence];
+  const decimals = v.key === "ph" ? 1 : v.key.endsWith("ppm") ? 0 : 1;
+  return `<div class="card">
+    <div class="row"><div class="eyebrow">${PRETTY[v.key] || esc(v.label)}</div><span class="chip ${cc}" title="Score ${v.confidence_score}">${cl}</span></div>
+    <div class="big num">${fmt(v.value, decimals)} <span class="small dim">${v.unit === "pH" ? "" : esc(v.unit)}</span></div>
+    ${v.ideal ? `<div class="band">${ideal}${rng}<div class="dot" style="left:${pct(v.value)}%;background:${col}"></div></div>
+    <div class="row small dim num"><span>${lo}</span><span>ideal ${v.ideal[0]}–${v.ideal[1]}</span><span>${hi}</span></div>` : ""}
+    <p class="small" style="margin:8px 0 0"><span class="status-${v.status||'ok'}">${(WHAT[v.key]||{})[v.status] || ""}</span></p>
+    <div class="small dim" style="margin-top:6px">${SRC[v.source] || v.source}${v.low != null && v.high != null ? ` · nearby range ${fmt(v.low, decimals)}–${fmt(v.high, decimals)}` : ""}</div>
+  </div>`;
+}
+
+function renderSoil(s){
+  const show = ["ph","organic_matter_pct","cec","p_ppm","k_ppm"];
+  $("#soilCards").innerHTML = show.map(k => soilCard(s.values[k])).join("");
+  const sa = s.values.sand_pct.value, si = s.values.silt_pct.value, cl = s.values.clay_pct.value, t = sa+si+cl || 1;
+  const tex = [["Sand", sa, css("--wheat")], ["Silt", si, css("--clay")], ["Clay", cl, css("--ink-dim")]];
+  $("#textureCard").innerHTML = `<h3>Texture: ${esc(s.texture_class)}</h3>
+    <div class="texture">${tex.map(x => `<div style="width:${x[1]/t*100}%;background:${x[2]}" title="${x[0]} ${Math.round(x[1])}%"></div>`).join("")}</div>
+    <div class="legend">${tex.map(x => `<span><i style="background:${x[2]}"></i>${x[0]} <span class="num">${Math.round(x[1])}%</span></span>`).join("")}</div>
+    <p class="small dim" style="margin:6px 0 0">Organic matter releases about <span class="num">${fmt(s.n_mineralized_lb_per_100sqft*16,2)}</span> oz of free nitrogen per 100 sq ft each season, already credited in your fertilizer plan.</p>
+    <p class="small dim">Averaged from ${s.points_with_data || 0} of ${s.points_sampled} survey points within ${s.radius_km} km.</p>`;
+  $("#soilNotes").innerHTML = s.notes.map(n => `<li>${esc(n)}</li>`).join("");
+  $("#soilSources").textContent = "Sources: " + s.sources.join(", ");
+}
+
+function renderRanking(rows){
+  const max = Math.max(...rows.map(r => Math.abs(r.net_per_sqft)), 0.01);
+  const inPlan = new Set(PLAN.map(p => p.crop));
+  $("#rankTable").innerHTML = `<thead><tr><th>#</th><th>Crop</th><th class="r">Net $/sq ft</th><th class="barcell"></th>
+    <th class="r">Harvest value</th><th class="r">lb/sq ft</th><th class="r">Plantings</th><th class="r">Water gal/sq ft</th><th>Fit</th><th></th></tr></thead><tbody>` +
+    rows.map((r,i) => `<tr>
+      <td class="dim num">${i+1}</td>
+      <td><strong>${esc(r.name)}</strong> <span class="season-tag ${r.season}">${r.season}</span></td>
+      <td class="r num"><strong>${money(r.net_per_sqft)}</strong></td>
+      <td class="barcell"><div class="hbar ${r.net_per_sqft<0?"neg":""}" style="width:${Math.abs(r.net_per_sqft)/max*100}%"></div></td>
+      <td class="r num">${money(r.value_per_sqft)}</td>
+      <td class="r num">${fmt(r.yield_lb_per_sqft,2)}</td>
+      <td class="r num">${r.plantings}${r.season_fraction<1?` <span class="dim">(${Math.round(r.season_fraction*100)}%)</span>`:""}</td>
+      <td class="r num">${fmt(r.water_gal_per_sqft)}</td>
+      <td class="small"><span class="dim">${esc(r.note)}</span>${r.soil_fit<1?`<br><span class="status-low">${esc(r.soil_note)}</span>`:""}</td>
+      <td>${inPlan.has(r.id) ? `<span class="small dim">in plan</span>` : `<button class="addbtn" data-add="${r.id}">+ plan</button>`}</td>
+    </tr>`).join("") + "</tbody>";
+  $$("#rankTable [data-add]").forEach(b => b.onclick = () => {
+    PLAN.push({crop:b.dataset.add, sqft:8}); store.set("plan", PLAN); renderPlan(); analyze(); });
+}
+
+function renderROI(r){
+  const net = r.net;
+  $("#roiKpis").innerHTML =
+    tile("Harvest value", money(r.harvest_value,0), `${fmt(r.harvest_lb)} lb at store prices`) +
+    tile("Yearly cost", money(r.total_cost,0), `${money(r.cost_per_lb)} per lb grown`) +
+    tile("Net savings", money(net,0), r.roi_pct != null ? `${fmt(r.roi_pct,0)}% return` : "", net >= 0 ? "pos" : "neg") +
+    tile("Payback", r.payback_seasons != null ? `${fmt(r.payback_seasons)} seasons` : "—", r.payback_seasons != null ? "to earn back setup" : "Add a setup cost to see payback");
+  const parts = [["Seeds & plants", r.costs.seeds_and_plants, css("--moss")], ["Soil & fertilizer", r.costs.soil_and_fertilizer, css("--clay")],
+                 ["Water", r.costs.water, css("--water")], ["Setup (per year)", r.costs.setup_per_year, css("--wheat")]];
+  const tot = parts.reduce((a,p)=>a+p[1],0) || 1;
+  $("#costStack").innerHTML = `<div class="stack">${parts.map(p=>`<div style="width:${p[1]/tot*100}%;background:${p[2]}" title="${p[0]}"></div>`).join("")}</div>
+    <div class="legend">${parts.map(p=>`<span><i style="background:${p[2]}"></i>${p[0]} <span class="num">${money(p[1])}</span></span>`).join("")}</div>
+    <p class="small dim" style="margin-bottom:0">First trip to the store (plants, bags, setup): <strong class="num">${money(r.upfront_store_cost)}</strong>. Bags last more than one season, so the yearly cost counts only what you use.</p>`;
+  $("#roiTable").innerHTML = `<thead><tr><th>Bed</th><th class="r">Sq ft</th><th class="r">Harvest lb</th><th class="r">Value</th><th class="r">Plants/seed</th></tr></thead><tbody>` +
+    r.rows.map(x => `<tr><td>${esc(x.crop)}</td><td class="r num">${fmt(x.sqft,0)}</td><td class="r num">${fmt(x.harvest_lb)}</td><td class="r num">${money(x.value)}</td><td class="r num">${money(x.seed_cost)}</td></tr>`).join("") + "</tbody>";
+}
+
+// Simple SVG bar chart --------------------------------------------------------
+function bars(el, labels, series, opts={}){
+  const W = Math.max(320, el.clientWidth || 640), H = opts.h || 240, pl = 44, pr = 8, pt = 14, pb = 26;
+  const max = Math.max(...series.flatMap(s => s.values), 0.0001) * 1.1;
+  const n = labels.length, gw = (W-pl-pr)/n, bw = Math.min(28, (gw-6)/series.length);
+  const y = v => pt + (H-pt-pb) * (1 - v/max);
+  const ticks = 4;
+  let g = "";
+  for (let i=0;i<=ticks;i++){ const v = max/ticks*i; g += `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--line")}"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${opts.fmt?opts.fmt(v):fmt(v,0)}</text>`; }
+  labels.forEach((lab,i) => {
+    const x0 = pl + i*gw + (gw - bw*series.length)/2;
+    series.forEach((s,j) => { const v = s.values[i]; const h = (H-pt-pb) - (y(v)-pt);
+      g += `<rect x="${x0+j*bw}" y="${y(v)}" width="${bw-2}" height="${Math.max(0,h)}" rx="3" fill="${s.color}"><title>${lab} · ${s.name}: ${opts.fmt?opts.fmt(v):fmt(v)}</title></rect>`; });
+    g += `<text x="${pl + i*gw + gw/2}" y="${H-8}" text-anchor="middle">${lab}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(opts.label||"chart")}">${g}</svg>` +
+    (series.length > 1 ? `<div class="legend">${series.map(s=>`<span><i style="background:${s.color}"></i>${s.name}</span>`).join("")}</div>` : "");
+}
+
+function renderWater(w){
+  const peak = w.monthly_gallons.indexOf(Math.max(...w.monthly_gallons));
+  $("#waterKpis").innerHTML =
+    tile("Irrigation per year", `${fmt(w.total_gallons,0)} gal`, `on top of rain`) +
+    tile("Water cost per year", money(w.total_cost), `at ${money(w.water_rate)} / 1,000 gal`) +
+    tile("Rain does the rest", `${fmt(w.rain_supplied_gallons,0)} gal`, "free water your beds keep") +
+    tile("Peak month", w.monthly_gallons[peak] ? w.months[peak] : "—", w.monthly_gallons[peak] ? `${fmt(w.monthly_gallons[peak],0)} gal · ${money(w.monthly_cost[peak])}` : "") +
+    (w.drip_savings > 0.005 ? tile("Switch to drip", `save ${money(w.drip_savings)}`, "per year, less water wasted") : "");
+  bars($("#waterChart"), w.months, [{name:"Gallons", values:w.monthly_gallons, color:css("--water")}], {label:"Monthly irrigation gallons"});
+  bars($("#rainChart"), w.months, [{name:"Rainfall (in)", values:w.monthly_rain_in, color:css("--water")}, {name:"Crop water use, ET₀ (in)", values:w.monthly_et0_in, color:css("--wheat")}], {h:220, fmt:v=>fmt(v,1), label:"Rain vs evapotranspiration"});
+}
+
+function renderFert(f, soil){
+  const extras = (f.ph_action ? 1 : 0) + (f.compost_action ? 1 : 0);
+  $("#fertKpis").innerHTML =
+    tile("At the store", money(f.upfront_cost), "whole bags, first season") +
+    tile("Used this season", money(f.season_cost), "value of what you apply") +
+    tile("Nitrogen to add", `${fmt(f.need_lb.N*16,1)} oz`, `after ${fmt((f.credits_lb.N_from_organic_matter+f.credits_lb.N_from_compost)*16,1)} oz free from soil & compost`) +
+    tile("Soil fixes", extras ? `${extras}` : "None", extras ? "pH and/or organic matter" : "pH and organic matter look fine");
+  $("#fertTable").innerHTML = f.purchases.length ? `<thead><tr><th>Product</th><th class="r">Buy</th><th class="r">Cost</th></tr></thead><tbody>` +
+    f.purchases.map(p => `<tr><td><strong>${esc(p.name)}</strong><div class="small dim">Apply ${fmt(p.lbs_to_apply,1)} lb (${fmt(p.per_100_sqft_lb,1)} lb per 100 sq ft) · ${fmt(p.leftover_lb)} lb left for next year</div></td><td class="r num" style="white-space:nowrap">${p.bags} × ${p.bag_lb} lb</td><td class="r num">${money(p.upfront_cost)}</td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td class="dim">Nothing to buy: your soil and compost already cover this plan.</td></tr></tbody>`;
+  const fix = [];
+  if (f.ph_action) fix.push(`<div style="margin-bottom:12px"><strong>${esc(f.ph_action.product)}</strong> to ${esc(f.ph_action.action)}<div class="num">${fmt(f.ph_action.lbs)} lb (${fmt(f.ph_action.lb_per_100_sqft)} lb / 100 sq ft) · ${f.ph_action.bags} bag · ${money(f.ph_action.upfront_cost)}</div><div class="small dim">${esc(f.ph_action.note)}</div></div>`);
+  if (f.compost_action) fix.push(`<div><strong>${esc(f.compost_action.product)}</strong>: add ${f.compost_action.inches} in.<div class="num">${fmt(f.compost_action.cubic_feet)} cu ft · ${f.compost_action.bags} bags · ${money(f.compost_action.upfront_cost)}</div><div class="small dim">${esc(f.compost_action.note)}</div></div>`);
+  $("#soilFixes").innerHTML = fix.join("") || `<p class="dim">pH ${fmt(soil.values.ph.value,1)} and organic matter ${fmt(soil.values.organic_matter_pct.value,1)}% are in range. Nothing to fix.</p>`;
+  const keys = ["N","P2O5","K2O"];
+  bars($("#nutrientChart"), keys, [{name:"Needed", values:keys.map(k=>f.need_lb[k]), color:css("--ink-dim")}, {name:"Supplied", values:keys.map(k=>f.supplied_lb[k]), color:css("--moss")}], {h:200, fmt:v=>fmt(v,2), label:"Nutrients needed vs supplied"});
+  $("#fertNotes").innerHTML = f.notes.map(n => `<li>${esc(n)}</li>`).join("");
+}
+
+// ---- boot ------------------------------------------------------------------
+(async function boot(){
+  const s = store.get("settings", null);
+  if (s){ $("#waterRate").value = s.water; $("#irrigation").value = s.irr; $("#setupCost").value = s.setup; $("#setupYears").value = s.years; $("#organicOnly").checked = s.org; }
+  fillTest();
+  try { CROPS = await api("/api/crops"); } catch { CROPS = []; }
+  renderPlan();
+  const saved = store.get("location", null);
+  if (saved && ["device","address","zip"].includes(saved.source)){ showLocation(saved); await analyze(); return; }
+  locate({method:"ip", browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone});
+})();
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => LAST && renderAll(LAST), 200); });
+</script>
+</body>
+</html>
