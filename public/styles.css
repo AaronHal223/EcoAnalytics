@@ -1,0 +1,262 @@
+/* EcoAnalytics. One stylesheet, two layouts:
+   - "web": wide screens get a website layout (hero header, tabs on top, cards side by side)
+   - "app": phones get an app layout (compact sticky header, bottom tab bar, card lists)
+   The switch happens at 760px; js/app.js mirrors it as html[data-layout].
+   Palette: calm forest and sage, with a "forest night" dark mode. */
+
+:root{
+  --paper:#eef3ea; --card:#fbfdf8; --ink:#1d2a21; --ink-dim:#5c6c60; --line:#d9e4d4;
+  --moss:#2f6b45; --moss-soft:#e0eddf; --leaf:#6aa864; --sage:#9dbb93;
+  --clay:#ad6648; --clay-soft:#f3e5db; --wheat:#b8952f; --wheat-soft:#f2ecd2;
+  --water:#2c7c82; --water-soft:#d9ecec;
+  --good:#2f7a45; --warn:#8a6818; --bad:#ae4c36; --on-accent:#fff;
+  --hero-a:#24563a; --hero-b:#4f8a5b; --hero-ink:#f3f8ef;
+  --radius:16px; --shadow:0 1px 0 rgba(29,42,33,.04),0 10px 24px -18px rgba(29,42,33,.45);
+  --shadow-hover:0 1px 0 rgba(29,42,33,.04),0 16px 30px -18px rgba(29,42,33,.55);
+  --tabbar-h:64px; --ease:cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f1712; --card:#162119; --ink:#e3ede0; --ink-dim:#9db0a1; --line:#25342a;
+  --moss:#8cc79a; --moss-soft:#1e3125; --leaf:#7fbf78; --sage:#5c7a5f;
+  --clay:#df9273; --clay-soft:#382720; --wheat:#d9bd66; --wheat-soft:#322e1b;
+  --water:#6cc2c3; --water-soft:#152e2e;
+  --good:#8fd19b; --warn:#e2c26a; --bad:#ee8f78; --on-accent:#0f1712;
+  --hero-a:#173322; --hero-b:#2b5236; --hero-ink:#e3ede0;
+  --shadow:none; --shadow-hover:0 0 0 1px var(--sage);}}
+:root[data-theme="dark"]{
+  --paper:#0f1712; --card:#162119; --ink:#e3ede0; --ink-dim:#9db0a1; --line:#25342a;
+  --moss:#8cc79a; --moss-soft:#1e3125; --leaf:#7fbf78; --sage:#5c7a5f;
+  --clay:#df9273; --clay-soft:#382720; --wheat:#d9bd66; --wheat-soft:#322e1b;
+  --water:#6cc2c3; --water-soft:#152e2e;
+  --good:#8fd19b; --warn:#e2c26a; --bad:#ee8f78; --on-accent:#0f1712;
+  --hero-a:#173322; --hero-b:#2b5236; --hero-ink:#e3ede0;
+  --shadow:none; --shadow-hover:0 0 0 1px var(--sage);}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;
+  background:radial-gradient(1200px 600px at 100% -10%,var(--moss-soft),transparent 60%),
+             radial-gradient(900px 500px at -10% 30%,var(--water-soft),transparent 55%),var(--paper);
+  background-attachment:fixed;min-height:100vh}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 64px}
+
+/* Hero header ------------------------------------------------------------------ */
+header.top{position:relative;overflow:hidden;margin-top:16px;padding:30px 28px 26px;border-radius:22px;
+  background:linear-gradient(135deg,var(--hero-a),var(--hero-b));color:var(--hero-ink);
+  display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+header.top .leaves{position:absolute;inset:0;pointer-events:none;opacity:.22}
+header.top .leaves path{fill:var(--hero-ink)}
+.leaves .sway{transform-origin:85% 110%;animation:sway 9s ease-in-out infinite alternate}
+.brand{position:relative;display:flex;align-items:center;gap:14px}
+.brand img{width:46px;height:46px;border-radius:12px;box-shadow:0 6px 16px -8px rgba(0,0,0,.5)}
+header.top h1{font-size:2.2rem;line-height:1}
+header.top h1 span{color:#cfe8c3}
+header.top p{margin:6px 0 0;opacity:.85}
+.top-actions{position:relative;display:flex;gap:8px}
+.icon-btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:var(--hero-ink);border-radius:999px;padding:7px 13px;cursor:pointer;font:inherit;font-size:.85rem;display:inline-flex;align-items:center;gap:6px;backdrop-filter:blur(6px);transition:background .2s}
+.icon-btn:hover{background:rgba(255,255,255,.22)}
+.icon-btn svg{width:16px;height:16px}
+.install{display:none}
+.install.show{display:inline-flex}
+
+/* Location ---------------------------------------------------------------------- */
+.loc{margin-top:-18px;position:relative;z-index:2;margin-inline:18px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-hover);display:grid;gap:12px}
+.loc-top{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center}
+.loc-pin{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--moss-soft);color:var(--moss);flex:none}
+.loc-pin svg{width:20px;height:20px}
+.loc-label{font-weight:600;font-size:1.05rem;overflow-wrap:anywhere}
+.loc-toggle{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.chip.hi{background:var(--moss-soft);color:var(--good)} .chip.med{background:var(--wheat-soft);color:var(--warn)} .chip.lo{background:var(--clay-soft);color:var(--bad)}
+.loc-form{display:flex;gap:8px;flex-wrap:wrap}
+input,select{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0;transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus{outline:none;border-color:var(--moss);box-shadow:0 0 0 3px var(--moss-soft)}
+button:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+.loc-form input{flex:1 1 260px}
+button.btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:8px 16px;cursor:pointer;background:var(--moss);color:var(--on-accent);transition:transform .15s var(--ease),filter .2s}
+button.btn:hover{filter:brightness(1.08)} button.btn:active{transform:scale(.97)}
+button.btn.ghost{background:transparent;color:var(--moss);border:1px solid var(--moss)}
+button.btn:disabled{opacity:.55;cursor:wait}
+.vpn{border:1px solid var(--clay);background:var(--clay-soft);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.vpn strong{color:var(--bad)}
+.vpn ul{margin:6px 0 0;padding-left:18px}
+
+/* Tabs: pill bar on the web ----------------------------------------------------------- */
+nav.tabs{display:flex;gap:6px;margin:22px 0 16px;overflow-x:auto;padding:5px;background:var(--card);border:1px solid var(--line);border-radius:999px;width:max-content;max-width:100%;box-shadow:var(--shadow)}
+nav.tabs button{font:inherit;font-weight:600;background:none;border:0;border-radius:999px;color:var(--ink-dim);padding:8px 16px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:8px;transition:background .25s var(--ease),color .25s}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button svg{width:18px;height:18px;flex:none}
+nav.tabs button.on{color:var(--on-accent);background:var(--moss)}
+section.tab{display:none} section.tab.on{display:block}
+
+/* Cards, tiles, motion ------------------------------------------------------------------ */
+.grid{display:grid;gap:14px}
+.g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.g4{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.split{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.gap{height:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);min-width:0;transition:transform .25s var(--ease),box-shadow .25s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.card h3{font-size:1.1rem;margin-bottom:8px}
+section.tab.on .card{animation:rise .5s var(--ease) both}
+section.tab.on .grid > .card:nth-child(2){animation-delay:.04s}
+section.tab.on .grid > .card:nth-child(3){animation-delay:.08s}
+section.tab.on .grid > .card:nth-child(4){animation-delay:.12s}
+section.tab.on .grid > .card:nth-child(5){animation-delay:.16s}
+.kpi{position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;right:-24px;top:-24px;width:80px;height:80px;border-radius:50%;background:var(--moss-soft);opacity:.7}
+.kpi > *{position:relative;z-index:1}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);font-weight:600}
+.big{font-size:1.75rem;line-height:1.1;margin:4px 0;overflow-wrap:anywhere}
+.big.pos{color:var(--good)} .big.neg{color:var(--bad)}
+.dim{color:var(--ink-dim)} .small{font-size:.84rem}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.band{position:relative;height:8px;border-radius:99px;background:var(--line);margin:12px 0 6px}
+.band .ok{position:absolute;top:0;bottom:0;background:var(--moss-soft);border:1px solid var(--leaf);border-radius:99px}
+.band .dot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid var(--card);box-shadow:0 1px 4px rgba(0,0,0,.25);animation:slide-in .9s var(--ease) both}
+.band .rng{position:absolute;top:2px;bottom:2px;background:var(--ink-dim);opacity:.3;border-radius:99px}
+.status-low{color:var(--bad)} .status-high{color:var(--warn)} .status-ok{color:var(--good)}
+.texture{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:10px 0 8px}
+.texture{animation:grow-x .8s var(--ease) both;transform-origin:left}
+.notes{margin:0;padding-left:18px;color:var(--ink-dim);font-size:.88rem}
+.notes li{margin:4px 0}
+details summary{cursor:pointer;font-weight:600;color:var(--moss)}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.form-grid label{display:grid;gap:4px;font-size:.82rem;color:var(--ink-dim)}
+.check{grid-column:1/-1;display:flex!important;align-items:center;gap:8px;color:var(--ink)!important}
+.check input{accent-color:var(--moss);width:18px;height:18px}
+
+/* Range sliders */
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;padding:0;border:0;height:22px;width:100%}
+input[type=range]:focus{box-shadow:none}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;background:linear-gradient(90deg,var(--leaf) var(--fill,50%),var(--line) var(--fill,50%))}
+input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:linear-gradient(90deg,var(--leaf) var(--fill,50%),var(--line) var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-7px;border-radius:50%;background:var(--card);border:3px solid var(--moss);box-shadow:0 1px 4px rgba(0,0,0,.2);cursor:grab}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--moss);cursor:grab}
+
+/* Segmented control */
+.seg{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:.85rem;font-weight:600;border:0;background:none;color:var(--ink-dim);padding:6px 14px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s}
+.seg button.on{background:var(--water);color:var(--on-accent)}
+.whatif{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center}
+.whatif .slider{flex:1 1 240px;display:grid;gap:2px}
+
+/* Tables (web) / lists (app) ------------------------------------------------------------ */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-dim);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{transition:background .2s}
+tbody tr:hover{background:var(--moss-soft)}
+td.r,th.r{text-align:right}
+.barcell{min-width:120px}
+.hbar{height:10px;border-radius:99px;background:linear-gradient(90deg,var(--moss),var(--leaf));transform-origin:left;animation:grow-x .8s var(--ease) both}
+.hbar.neg{background:var(--clay)}
+.addbtn{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--moss);background:transparent;color:var(--moss);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap;transition:background .2s,color .2s}
+.addbtn:hover{background:var(--moss);color:var(--on-accent)}
+.season-tag{font-size:.72rem;font-weight:600;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.season-tag.warm{background:var(--clay-soft);color:var(--clay)} .season-tag.cool{background:var(--water-soft);color:var(--water)}
+.rank-list{display:none;list-style:none;margin:0;padding:0}
+.rank-list li{display:grid;grid-template-columns:28px 1fr auto;gap:4px 10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+.rank-list .pos{color:var(--ink-dim);font-size:.85rem}
+.rank-list .meta{grid-column:2/4;font-size:.8rem;color:var(--ink-dim)}
+.rank-list .hbar{grid-column:2/4}
+.medal{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--moss-soft);color:var(--moss);font-size:.75rem;font-weight:700}
+
+.plan-row{display:grid;grid-template-columns:1fr 70px 40px;gap:8px;align-items:center;margin-bottom:4px}
+.plan-row + .plan-slider{margin:0 48px 10px 0}
+.plan-row button{border:1px solid var(--line);background:var(--paper);border-radius:10px;cursor:pointer;color:var(--ink-dim);font-size:1.1rem;height:40px}
+.plan-row button:hover{color:var(--bad);border-color:var(--bad)}
+.stack{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:10px 0}
+.stack div{animation:grow-x .8s var(--ease) both;transform-origin:left}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--ink-dim)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* Charts */
+.chart{position:relative}
+svg text{fill:var(--ink-dim);font:11px "IBM Plex Sans",sans-serif}
+svg rect.bar{transform-box:fill-box;transform-origin:bottom;animation:grow-y .7s var(--ease) both;cursor:pointer;transition:opacity .2s}
+svg:hover rect.bar{opacity:.55} svg rect.bar:hover,svg rect.bar.hl{opacity:1}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:.8rem;padding:6px 9px;border-radius:8px;white-space:nowrap;transform:translate(-50%,calc(-100% - 8px));opacity:0;transition:opacity .15s;z-index:5}
+.tip.show{opacity:1}
+
+/* Toast with a turning leaf while loading */
+.toast{position:fixed;right:16px;bottom:16px;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:12px;font-size:.88rem;display:none;align-items:center;gap:10px;z-index:30;max-width:calc(100vw - 32px);box-shadow:0 10px 30px -10px rgba(0,0,0,.4);animation:rise .3s var(--ease) both}
+.toast.err{background:var(--bad);color:#fff}
+.toast .spin{width:18px;height:18px;flex:none;animation:spin 1.6s linear infinite}
+.toast .spin path{fill:var(--leaf)}
+.empty{padding:40px 16px;text-align:center;color:var(--ink-dim)}
+.skeleton{height:130px;border-radius:var(--radius);background:linear-gradient(90deg,var(--card) 25%,var(--moss-soft) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border:1px solid var(--line)}
+footer{margin-top:40px;color:var(--ink-dim);font-size:.8rem}
+
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes grow-x{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes grow-y{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes slide-in{from{left:0;opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sway{from{transform:rotate(-2deg)}to{transform:rotate(3deg)}}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+body.live *{animation:none!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ===========================================================================
+   APP LAYOUT (phones and narrow windows)
+   =========================================================================== */
+@media (max-width:760px){
+  .wrap{padding:0 12px calc(var(--tabbar-h) + 28px + env(safe-area-inset-bottom))}
+
+  /* Compact sticky app bar instead of the hero */
+  header.top{position:sticky;top:0;z-index:15;margin:0 -12px;border-radius:0 0 18px 18px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 12px;align-items:center}
+  header.top .leaves{opacity:.14}
+  .brand{gap:10px}
+  .brand img{width:32px;height:32px;border-radius:9px}
+  header.top h1{font-size:1.35rem}
+  header.top p{display:none}
+  .icon-btn .lbl{display:none}
+  .icon-btn{padding:8px}
+
+  /* Location collapses to one line; tap Change to edit */
+  .loc{margin:12px 0 0;padding:12px;gap:10px;box-shadow:var(--shadow)}
+  .loc-pin{display:none}
+  .loc-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px}
+  .loc-top .chip{grid-column:1;grid-row:2;justify-self:start}
+  .loc-toggle{display:inline-flex;grid-column:2;grid-row:1/3;align-self:center}
+  .loc:not(.open) .loc-form,.loc:not(.open) #locHint{display:none}
+  .loc-label{font-size:.95rem}
+  .loc-form input{flex-basis:100%}
+  .loc-form .btn{flex:1}
+
+  /* Bottom tab bar, like a native app */
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;margin:0;width:auto;border:0;border-radius:20px 20px 0 0;border-top:1px solid var(--line);
+    background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;gap:2px;overflow:visible;box-shadow:0 -8px 24px -16px rgba(0,0,0,.35)}
+  nav.tabs button{flex:1;flex-direction:column;gap:3px;padding:6px 2px;font-size:.68rem;min-height:56px;justify-content:center;border-radius:14px}
+  nav.tabs button svg{width:22px;height:22px;transition:transform .25s var(--ease)}
+  nav.tabs button.on{color:var(--moss);background:var(--moss-soft)}
+  nav.tabs button.on svg{transform:translateY(-2px) scale(1.1)}
+  nav.tabs .tab-long{display:none}
+  section.tab{padding-top:14px}
+
+  .card{padding:14px;border-radius:14px}
+  .card:hover{transform:none}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .g3,.split{grid-template-columns:1fr}
+  .grid{gap:10px}
+  .gap{height:10px}
+  .big{font-size:1.4rem}
+  .kpi .small{font-size:.78rem}
+  .kpi::after{width:60px;height:60px}
+
+  #rankTable{display:none}
+  .rank-list{display:block}
+  .rank-head{flex-direction:column;align-items:flex-start!important}
+
+  .plan-row{grid-template-columns:1fr 70px 40px}
+  input,select{padding:10px;font-size:16px} /* 16px stops iOS zooming into fields */
+  .toast{left:12px;right:12px;bottom:calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom))}
+  footer{font-size:.75rem}
+}
