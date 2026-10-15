@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EcoAnalytics</title>
+<meta name="description" content="Soil-first, economics-first analytics for backyard growers: your soil, your season, your dollars.">
+<meta name="theme-color" content="#24563a" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#173322" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EcoAnalytics">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <svg class="leaves" viewBox="0 0 1200 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+    <g class="sway">
+      <path d="M1040 240C1000 150 1010 70 1090 10c40 70 30 160-50 230z"/>
+      <path d="M1110 250c-20-80 10-150 90-180 20 70-10 150-90 180z"/>
+      <path d="M960 250c-40-50-50-110-10-170 50 40 60 110 10 170z"/>
+    </g>
+    <path d="M0 200c180-40 360 30 560 0s400-50 640-10v40H0z"/>
+  </svg>
+  <div class="brand">
+    <img src="icons/icon.svg" alt="">
+    <div>
+      <h1>Eco<span>Analytics</span></h1>
+      <p>Your soil, your season, your dollars. Backyard growing, measured.</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="icon-btn install" id="installBtn" aria-label="Install app">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg><span class="lbl">Install app</span></button>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span class="lbl">Theme</span></button>
+  </div>
+</header>
+
+<div class="loc" id="locBox">
+  <div class="loc-top">
+    <span class="loc-pin" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+    <div style="flex:1;min-width:0"><div class="eyebrow">Garden location</div><div class="loc-label" id="locLabel">Finding you…</div></div>
+    <span class="chip" id="locChip" hidden></span>
+    <button class="btn ghost loc-toggle" id="locToggle" aria-expanded="false">Change</button>
+  </div>
+  <div class="vpn" id="vpnBox" hidden></div>
+  <div class="loc-form">
+    <input id="addrInput" placeholder="Street address or ZIP code (most accurate)" autocomplete="street-address" inputmode="text">
+    <button class="btn" id="addrBtn">Use this</button>
+    <button class="btn ghost" id="gpsBtn">Use device location</button>
+  </div>
+  <div class="small dim" id="locHint">Soil is looked up from USDA soil surveys around this point. The more exact the location, the tighter the estimate.</div>
+</div>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button class="on" data-tab="soil" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 14h18M3 19h18"/><path d="M12 9V4m0 0c-2 0-3.5 1-4 2.5M12 4c2 0 3.5 1 4 2.5"/></svg>
+    <span>Soil</span></button>
+  <button data-tab="crops" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-4 3-6 7-6 0 4-3 6-7 6z"/></svg>
+    <span>Crop<span class="tab-long"> value</span></span></button>
+  <button data-tab="roi" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2m0 8v2"/></svg>
+    <span><span class="tab-long">Garden </span>ROI</span></button>
+  <button data-tab="water" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
+    <span>Water<span class="tab-long"> cost</span></span></button>
+  <button data-tab="fert" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l2 5v11H5V9z"/><path d="M5 9h14M10 14h4"/></svg>
+    <span>Fertilizer<span class="tab-long"> plan</span></span></button>
+</nav>
+
+<!-- SOIL -->
+<section class="tab on" id="tab-soil">
+  <div class="grid g4" id="seasonTiles"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+  <div class="gap"></div>
+  <div class="grid g3" id="soilCards"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+  <div class="gap"></div>
+  <div class="grid g3">
+    <div class="card" id="textureCard"></div>
+    <div class="card">
+      <h3>How sure are these numbers?</h3>
+      <ul class="notes" id="soilNotes"></ul>
+      <p class="small dim" id="soilSources"></p>
+    </div>
+    <div class="card">
+      <details id="testDetails">
+        <summary>Have a soil test? Enter it</summary>
+        <p class="small dim">Real lab or kit numbers replace the estimates everywhere. Leave blank what you don't have.</p>
+        <div class="form-grid">
+          <label>pH<input type="number" step="0.1" inputmode="decimal" id="t_ph"></label>
+          <label>Organic matter %<input type="number" step="0.1" inputmode="decimal" id="t_organic_matter_pct"></label>
+          <label>Phosphorus ppm<input type="number" step="1" inputmode="numeric" id="t_p_ppm"></label>
+          <label>Potassium ppm<input type="number" step="1" inputmode="numeric" id="t_k_ppm"></label>
+          <label>CEC<input type="number" step="0.1" inputmode="decimal" id="t_cec"></label>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px"><button class="btn" id="testApply">Apply test</button><button class="btn ghost" id="testClear">Clear</button></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CROPS -->
+<section class="tab" id="tab-crops">
+  <div class="card">
+    <div class="row rank-head" style="flex-wrap:wrap"><h3>Which crops pay best per square foot here</h3>
+      <span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil and season.</span></div>
+    <div class="table-wrap"><table id="rankTable"></table></div>
+    <ol class="rank-list" id="rankList"></ol>
+  </div>
+</section>
+
+<!-- ROI -->
+<section class="tab" id="tab-roi">
+  <div class="grid split">
+    <div class="card">
+      <h3>Your garden plan</h3>
+      <div id="planRows"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn ghost" id="addRow">+ Add bed</button>
+        <span class="small dim" id="planArea" style="align-self:center"></span>
+      </div>
+      <div class="form-grid" style="margin-top:14px">
+        <label>Water rate ($ / 1,000 gal)<input type="number" step="0.25" inputmode="decimal" id="waterRate" value="6"></label>
+        <label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
+        <label>One-time setup ($)<input type="number" step="10" inputmode="decimal" id="setupCost" value="0"></label>
+        <label>Spread setup over (yrs)<input type="number" step="1" min="1" inputmode="numeric" id="setupYears" value="5"></label>
+        <label class="check"><input type="checkbox" id="organicOnly"> Organic fertilizers only</label>
+      </div>
+    </div>
+    <div class="grid" style="align-content:start">
+      <div class="grid g2" id="roiKpis"></div>
+      <div class="card"><h3>Where the money goes</h3><div id="costStack"></div></div>
+      <div class="card"><h3>By bed</h3><div class="table-wrap"><table id="roiTable"></table></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WATER -->
+<section class="tab" id="tab-water">
+  <div class="card whatif">
+    <div><div class="eyebrow" style="margin-bottom:6px">How you water</div>
+      <div class="seg" id="methodSeg" role="radiogroup" aria-label="Watering method">
+        <button data-m="hose" role="radio">Hose</button><button data-m="drip" role="radio">Drip</button><button data-m="sprinkler" role="radio">Sprinkler</button>
+      </div></div>
+    <label class="slider"><span class="row"><span class="eyebrow">Your water rate</span><span class="num" id="rateOut"></span></span>
+      <input type="range" id="rateSlider" min="1" max="20" step="0.25" aria-label="Water rate in dollars per 1,000 gallons"></label>
+  </div>
+  <div class="gap"></div>
+  <div class="grid g4" id="waterKpis"></div>
+  <div class="gap"></div>
+  <div class="card chart"><h3>Irrigation you'll need beyond rainfall</h3>
+    <p class="small dim" style="margin:0">From the last three years of local weather: crop water use (evapotranspiration) minus the rain your soil holds onto.</p>
+    <div id="waterChart"></div>
+  </div>
+  <div class="gap"></div>
+  <div class="card"><h3>Rain vs. what plants use</h3><div id="rainChart"></div></div>
+</section>
+
+<!-- FERTILIZER -->
+<section class="tab" id="tab-fert">
+  <div class="grid g4" id="fertKpis"></div>
+  <div class="gap"></div>
+  <div class="grid split">
+    <div class="card"><h3>Cheapest shopping list</h3>
+      <p class="small dim" style="margin-top:0">Picks whole bags to minimise what you spend at the store, while meeting this plan's nitrogen, phosphorus and potassium needs.</p>
+      <div class="table-wrap"><table id="fertTable"></table></div>
+    </div>
+    <div class="card"><h3>Soil fixes</h3><div id="soilFixes"></div></div>
+    <div class="card"><h3>Nutrient balance (lb)</h3><div id="nutrientChart"></div><ul class="notes" id="fertNotes"></ul></div>
+  </div>
+</section>
+
+<footer>
+  Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
+  Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/lp-solver.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

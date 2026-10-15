@@ -1,0 +1,41 @@
+# Render Blueprint: hosts EcoAnalytics as a free, always-on static site on
+# Render's global CDN. Every push to main runs the tests, then redeploys.
+# One-time setup: render.com -> New -> Blueprint -> pick this repo -> Apply.
+services:
+  - type: web
+    name: ecoanalytics
+    runtime: static
+    branch: main
+    buildCommand: npm test
+    staticPublishPath: ./public
+    autoDeployTrigger: commit
+    pullRequestPreviewsEnabled: false
+    # Same-origin routes to the soil services. The site calls them directly
+    # first; these are the fallback if a browser blocks the cross-origin call.
+    routes:
+      - type: rewrite
+        source: /proxy/sda
+        destination: https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest
+      - type: rewrite
+        source: /proxy/soilgrids/*
+        destination: https://rest.isric.org/soilgrids/v2.0/*
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: geolocation=(self), camera=(), microphone=()
+      # Always check for a fresh service worker and page so updates show up promptly
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /
+        name: Cache-Control
+        value: no-cache
