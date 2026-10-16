@@ -64,19 +64,19 @@ Results are cached in your browser for 30 days, so return visits are instant and
 
 Everything runs in the visitor's browser. If a service is down, the site falls back (SoilGrids, then regional soil averages; latitude-based climate) and says so on screen.
 
-## Hosting on Render
+## Hosting (free)
 
-The site is static (HTML, CSS, JavaScript) with no server and no build step, so it runs on Render's **free static hosting**: always on, no sleeping or cold starts, served from a global CDN.
+The site is static (HTML, CSS, JavaScript) with no server and no build step, so it can be hosted for free.
 
-**One-time setup:**
+### GitHub Pages (recommended: no card, never bills)
 
-1. Sign in at [render.com](https://render.com) with your GitHub account.
-2. Click **New** then **Blueprint**, and pick the **EcoAnalytics** repo.
-3. Click **Apply**.
+**One-time setup:** in this repo, go to **Settings**, then **Pages**, and under **Build and deployment** set **Source** to **GitHub Actions**. Then open the **Actions** tab and re-run the latest "deploy website" run (or push any change).
 
-Render reads [`render.yaml`](render.yaml) and does the rest. You get a URL like `https://ecoanalytics.onrender.com`. After that, **every push to `main` runs the tests and redeploys automatically**. If a test fails, the previous version stays live.
+The site goes live at **https://aaronhal223.github.io/EcoAnalytics/**. After that, every push to `main` runs the tests and redeploys automatically ([`.github/workflows/pages.yml`](.github/workflows/pages.yml)). If a test fails, the previous version stays live.
 
-`render.yaml` also sets up two same-address routes (`/proxy/sda`, `/proxy/soilgrids/*`) to the soil services. The site calls the services directly first and uses these routes only if a browser blocks the direct call.
+### Render (optional)
+
+[`render.yaml`](render.yaml) also lets you host on Render instead (**New**, then **Blueprint**, pick this repo, **Deploy Blueprint**). Render's static hosting is free, but Render may ask for a card at sign-up and bills for traffic over 5 GB a month. Render also adds same-address routes (`/proxy/sda`, `/proxy/soilgrids/*`) that the site uses only if a browser blocks a direct call to the soil services.
 
 ## Run it locally
 
