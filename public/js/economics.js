@@ -86,21 +86,28 @@ export function cheapestNPrice(organicOnly) {
   return best;
 }
 
-export function rankCrops(soil, cl, { waterRate = DEFAULT_WATER_RATE, method = "hose", organicOnly = false, prices = {} } = {}) {
+/** Predicted lb per sq ft for a full season, before any personal calibration. */
+export function baseYieldPerSqft(crop, soil, cl) {
+  const fit = seasonFit(crop, cl);
+  return crop.yield_lb_per_sqft * fit.plantings * fit.fraction * phFactor(crop, soil.values.ph.value);
+}
+
+export function rankCrops(soil, cl, { waterRate = DEFAULT_WATER_RATE, method = "hose", organicOnly = false, prices = {}, yieldAdjust = {} } = {}) {
   const ph = soil.values.ph.value;
   const nFree = soil.n_mineralized_lb_per_100sqft / 100;
   const nPrice = cheapestNPrice(organicOnly);
   return CROPS.map(c => {
     const price = prices[c.id] ?? c.price_per_lb;
     const fit = seasonFit(c, cl), pf = phFactor(c, ph);
-    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf;
+    const adj = yieldAdjust[c.id] ?? 1;
+    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * adj;
     const value = y * price, seed = c.cost_per_sqft * fit.plantings;
     const gal = gallons(sum(monthlyIrrigationIn(c, fit, cl, soil.texture_class)), 1, method);
     const water = gal / 1000 * waterRate;
     const fert = Math.max(0, N_RATE[c.n_demand] / 100 * fit.plantings - 0.5 * nFree) * nPrice;
     return {
       id: c.id, name: c.name, season: c.season, plantings: fit.plantings, season_fraction: fit.fraction,
-      soil_fit: pf, yield_lb_per_sqft: r(y), value_per_sqft: r(value), seed_cost_per_sqft: r(seed),
+      soil_fit: pf, calibration: adj === 1 ? null : r(adj), yield_lb_per_sqft: r(y), value_per_sqft: r(value), seed_cost_per_sqft: r(seed),
       water_gal_per_sqft: r(gal, 1), water_cost_per_sqft: r(water, 3), fertilizer_cost_per_sqft: r(fert, 3),
       net_per_sqft: r(value - seed - water - fert),
       value_per_100_gal: gal > 0.05 ? r(value / gal * 100) : null,
@@ -246,31 +253,47 @@ export function optimizeFertilizer(plan, soil, cl, organicOnly = false) {
 }
 
 // ---- 4) Garden ROI ---------------------------------------------------------------------------
+// ---- Labor (your time) --------------------------------------------------------------------------
+/** Assumption, not a measurement: roughly an hour a week per 100 sq ft (planting, weeding, watering, picking). Editable on the page. */
+export const DEFAULT_LABOR_HR_PER_100SQFT_WEEK = 1;
+
+/** Hours of work over the growing season for `area` sq ft. Season length follows the frost-free season (8 to 40 weeks). */
+export function laborHours(area, cl, hrPer100Week = DEFAULT_LABOR_HR_PER_100SQFT_WEEK) {
+  const weeks = Math.min(40, Math.max(8, Math.round((cl.frost_free_days || 0) / 7)));
+  return { weeks, hours: r(area / 100 * Math.max(0, hrPer100Week) * weeks, 1) };
+}
+
 export function gardenROI(plan, soil, cl, { waterRate = DEFAULT_WATER_RATE, method = "hose", setupCost = 0,
-  setupYears = 5, organicOnly = false, prices = {} } = {}) {
+  setupYears = 5, organicOnly = false, prices = {}, yieldAdjust = {}, laborHrPer100Week = DEFAULT_LABOR_HR_PER_100SQFT_WEEK,
+  hourlyWage = 0 } = {}) {
   const water = waterPlan(plan, soil, cl, waterRate, method);
   const fert = optimizeFertilizer(plan, soil, cl, organicOnly);
   const rows = [];
-  let lb = 0, value = 0, seeds = 0;
+  let lb = 0, value = 0, seeds = 0, area = 0;
   for (const item of plan) {
     const c = CROP_BY_ID[item.crop], price = prices[c.id] ?? c.price_per_lb;
-    const fit = seasonFit(c, cl), pf = phFactor(c, soil.values.ph.value);
-    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * item.sqft;
+    const fit = seasonFit(c, cl), pf = phFactor(c, soil.values.ph.value), adj = yieldAdjust[c.id] ?? 1;
+    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * adj * item.sqft;
     const s = c.cost_per_sqft * fit.plantings * item.sqft;
-    rows.push({ crop: c.name, sqft: item.sqft, harvest_lb: r(y, 1), value: r(y * price), seed_cost: r(s) });
-    lb += y; value += y * price; seeds += s;
+    rows.push({ crop: c.name, sqft: item.sqft, harvest_lb: r(y, 1), value: r(y * price), seed_cost: r(s), calibration: adj === 1 ? null : r(adj) });
+    lb += y; value += y * price; seeds += s; area += item.sqft;
   }
   const setupPerYear = setupCost / Math.max(1, setupYears);
   const running = seeds + water.total_cost + fert.season_cost;
-  const total = running + setupPerYear, gain = value - running;
+  const lab = laborHours(area, cl, laborHrPer100Week);
+  const laborCost = lab.hours * Math.max(0, hourlyWage);
+  const total = running + setupPerYear + laborCost, gain = value - running;
+  const beforeLabor = value - running - setupPerYear;
   return {
     rows, harvest_lb: r(lb, 1), harvest_value: r(value),
-    costs: { seeds_and_plants: r(seeds), water: water.total_cost, soil_and_fertilizer: fert.season_cost, setup_per_year: r(setupPerYear) },
+    costs: { seeds_and_plants: r(seeds), water: water.total_cost, soil_and_fertilizer: fert.season_cost, setup_per_year: r(setupPerYear), labor: r(laborCost) },
     upfront_store_cost: r(fert.upfront_cost + seeds + setupCost),
     total_cost: r(total), net: r(value - total),
     roi_pct: total > 0 ? r((value - total) / total * 100, 1) : null,
     payback_seasons: setupCost > 0 && gain > 0 ? r(setupCost / gain, 1) : null,
     cost_per_lb: lb > 0 ? r(total / lb) : null,
+    labor: { hours: lab.hours, weeks: lab.weeks, hr_per_100sqft_week: laborHrPer100Week, wage: hourlyWage, cost: r(laborCost),
+      net_before_labor: r(beforeLabor), per_hour: lab.hours > 0 ? r(beforeLabor / lab.hours) : null },
     water, fertilizer: fert,
   };
 }

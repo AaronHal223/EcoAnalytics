@@ -3,10 +3,11 @@
 // the background, so a new deploy shows up on the next visit. Soil and weather
 // lookups go straight to the network (the page caches those results itself).
 
-const CACHE = "eco-shell-v2";
+const CACHE = "eco-shell-v3";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./js/app.js", "./js/net.js", "./js/geo.js", "./js/soil.js", "./js/climate.js", "./js/economics.js", "./js/data.js",
+  "./js/planner.js", "./js/forecast.js", "./js/calibration.js", "./js/provenance.js",
   "./vendor/lp-solver.js", "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
 ];
 

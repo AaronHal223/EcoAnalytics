@@ -51,10 +51,25 @@ export function openMeteoDaily(years = [2023, 2024, 2025], spring = 105, fall = 
   return { daily: { time, temperature_2m_max: tmax, temperature_2m_min: tmin, precipitation_sum: pr, et0_fao_evapotranspiration: et } };
 }
 
+/**
+ * Open-Meteo forecast shape (mm, F): 2 past days then 7 forecast days starting at `start`.
+ * `spec(i)` may return overrides per day index (0 = first past day).
+ */
+export function forecastPayload(start = "2026-07-14", spec = () => ({})) {
+  const time = [], tmax = [], tmin = [], pr = [], pop = [], et = [];
+  for (let i = 0; i < 9; i++) {
+    const d = new Date(Date.parse(start + "T12:00:00Z") + (i - 2) * 86400000);
+    const o = { tmax: 84, tmin: 64, rain: 0, pop: 5, et: 5, ...spec(i) };
+    time.push(d.toISOString().slice(0, 10)); tmax.push(o.tmax); tmin.push(o.tmin); pr.push(o.rain); pop.push(o.pop); et.push(o.et);
+  }
+  return { daily: { time, temperature_2m_max: tmax, temperature_2m_min: tmin, precipitation_sum: pr,
+    precipitation_probability_max: pop, et0_fao_evapotranspiration: et } };
+}
+
 /** Installs a fake fetch. Returns mutable state so tests can change responses. */
 export function fakeNet() {
   const state = {
-    sda: sdaTable(), soilgrids: soilgridsPayload(), calls: [], fail: new Set(),
+    sda: sdaTable(), soilgrids: soilgridsPayload(), calls: [], fail: new Set(), forecast: forecastPayload(),
     geojs: { ip: "73.1.2.3", latitude: "39.867", longitude: "-75.094", timezone: "America/New_York",
       city: "Bellmawr", region: "New Jersey", country_code: "US", organization_name: "Comcast Cable Communications, LLC" },
   };
@@ -72,6 +87,7 @@ export function fakeNet() {
       address: { house_number: "100", postcode: "08031", state: "New Jersey", "ISO3166-2-lvl4": "US-NJ" } }]);
     if (url.includes("sdmdataaccess") || url.startsWith("proxy/sda")) return reply(state.sda);
     if (url.includes("soilgrids")) return reply(state.soilgrids);  // also matches proxy/soilgrids
+    if (url.includes("api.open-meteo.com/v1/forecast")) return reply(state.forecast);
     if (url.includes("open-meteo")) return reply(openMeteoDaily());
     throw new Error("unexpected fetch " + url);
   };

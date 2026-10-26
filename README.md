@@ -24,9 +24,20 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 |---|---|
 | **Soil** | pH, organic matter, nutrient-holding capacity (CEC), texture, estimated phosphorus and potassium. Each shows its ideal range for vegetables, the spread across nearby survey points, and a high/medium/low confidence rating. |
 | **Crop value** | All 19 crops ranked by **net dollars per square foot per year** in your soil and season, after seeds/plants, water and nitrogen. One tap adds a crop to your plan. |
-| **Garden ROI** | Bed-by-bed plan with size sliders: harvest value at store prices, yearly cost, net savings, return %, cost per pound, payback time. Updates live as you drag. |
-| **Water cost** | Month-by-month irrigation beyond rainfall in gallons and dollars. Try hose vs. drip vs. sprinkler and drag your water rate to see the effect instantly. Tap or hover any bar for its value. |
+| **Calendar** | When to plant and harvest each crop, from your frost dates **adjusted for your soil**: heavy clay waits about a week, sandy soil can go in a few days early, and a pH far from a crop's range is flagged. A "right now" strip shows what's due today. |
+| **Garden ROI** | Bed-by-bed plan with size sliders: harvest value at store prices, yearly cost, net savings, return %, cost per pound, payback time. Also **your time**: hours of work and what the garden pays per hour (optionally counted as a cost). Includes the optional **harvest log**. |
+| **Water cost** | A **7-day watering plan** from the live forecast (water or skip each day, with gallons and dollars, plus a freeze warning for tender crops), then month-by-month irrigation beyond rainfall in gallons and dollars. Try hose vs. drip vs. sprinkler and drag your water rate to see the effect instantly. Tap or hover any bar for its value. |
 | **Fertilizer plan** | The cheapest **whole-bag** shopping list that covers your plan's N-P-K needs (solved as a mixed-integer program), plus lime or sulfur for pH and compost for organic matter. Organic-only mode included. |
+
+### What makes it different
+
+- **Every number shows its working.** Tap the small **i** on any figure for its source, formula, inputs and confidence (`js/provenance.js`).
+- **Soil-aware planning.** Calendars elsewhere use frost dates only. This one also uses your soil (`js/planner.js`).
+- **Full-cost ROI.** Seeds, soil, water, setup and, if you want, your time.
+- **Watering saved, in dollars.** Rain you can count on means a skipped watering, measured against a timer that ignores rain (`js/forecast.js`).
+- **It learns your yard.** Log pounds picked, press **Finish season**, and that crop's yield is scaled by what you actually got (clamped, averaged over the last three seasons, never compounding on itself). Logging is optional (`js/calibration.js`).
+
+The watering model, calendar shifts and labor hours are simple rules of thumb, and each says so in its **i** sheet. The labor default (1 hour per week per 100 sq ft) is an assumption you should change.
 
 ## How the soil gets researched
 
@@ -58,6 +69,7 @@ Results are cached in your browser for 30 days, so return visits are instant and
 | [USDA NRCS Soil Data Access (SSURGO)](https://sdmdataaccess.sc.egov.usda.gov) | pH, organic matter, CEC, sand/silt/clay |
 | [ISRIC SoilGrids 2.0](https://soilgrids.org) | Total nitrogen; backup where the survey has no data (e.g. "Urban land") |
 | [Open-Meteo historical weather](https://open-meteo.com) | 3 years of daily temperature, rain, evapotranspiration: frost dates, growing degree days, irrigation |
+| [Open-Meteo forecast](https://open-meteo.com/en/docs) | Next 7 days (plus 2 past days): the watering plan and freeze warnings. Cached 2 hours; if it's unreachable the card says so and nothing else is affected |
 | [OpenStreetMap Nominatim](https://nominatim.org) | Street address to coordinates |
 | [Zippopotam.us](https://zippopotam.us) | ZIP code to coordinates |
 | [GeoJS](https://www.geojs.io) (backup: [ipapi.co](https://ipapi.co)) | Connection location and network owner |
@@ -92,7 +104,7 @@ Add `?offline=1` to the URL to run on built-in estimates with no network calls.
 npm test
 ```
 
-43 tests (Node's built-in runner, no dependencies) cover location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, and the site itself (every referenced file exists, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
+80 tests (Node's built-in runner, no dependencies) cover location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
 
 ## Make it yours
 
@@ -112,7 +124,11 @@ public/                  <- everything that gets published
     geo.js               IP / ZIP / address / GPS location, VPN detection
     soil.js              soil research: SSURGO + SoilGrids, ring averaging, confidence
     climate.js           frost dates, growing degree days, rain and ET from weather history
-    economics.js         crop ranking, water cost, fertilizer optimizer, ROI
+    planner.js           soil-aware planting calendar
+    forecast.js          7-day forecast, watering plan, freeze warning
+    calibration.js       harvest log and per-crop yield calibration
+    provenance.js        "where this number comes from" explanations
+    economics.js         crop ranking, water cost, fertilizer optimizer, ROI, labor
     data.js              editable crop and fertilizer tables
     net.js               shared fetch helper, offline switch
   vendor/lp-solver.js    javascript-lp-solver (public domain), used by the fertilizer optimizer

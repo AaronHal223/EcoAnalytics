@@ -260,3 +260,82 @@ body.live *{animation:none!important}
   .toast{left:12px;right:12px;bottom:calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom))}
   footer{font-size:.75rem}
 }
+
+/* ===========================================================================
+   Calendar, forecast, harvest log, and the "where this came from" sheet
+   =========================================================================== */
+.eyebrow-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+button.why{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid var(--sage);background:transparent;color:var(--moss);font:italic 700 .75rem Georgia,serif;line-height:1;cursor:pointer;display:inline-grid;place-items:center;padding:0;transition:background .2s,color .2s}
+button.why:hover,button.why:focus-visible{background:var(--moss);color:var(--on-accent)}
+.why-inline{margin-left:6px;vertical-align:1px}
+
+dialog#whySheet{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);padding:18px 20px;max-width:540px;width:calc(100% - 32px);box-shadow:0 24px 60px -20px rgba(0,0,0,.5)}
+dialog#whySheet::backdrop{background:rgba(10,20,14,.5)}
+dialog#whySheet[open]{animation:rise .3s var(--ease) both}
+.why-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.why-head h3{font-size:1.3rem;margin-top:2px}
+.why-sum{color:var(--moss);font-size:1.05rem;margin-top:2px}
+.why-close{border:0;background:var(--paper);color:var(--ink-dim);border-radius:50%;width:32px;height:32px;font-size:1.3rem;cursor:pointer;flex:none}
+.why-steps{margin:12px 0;padding-left:20px;font-size:.92rem}
+.why-steps li{margin:7px 0}
+.why-caveat{background:var(--wheat-soft);color:var(--warn);border-radius:10px;padding:8px 10px;margin:0 0 10px}
+
+/* Calendar */
+.cal-head{flex-wrap:wrap;margin-bottom:6px}
+.cal-now{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px}
+.now-chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px;font-size:.82rem;font-weight:600}
+.now-chip.sow{background:var(--moss-soft);color:var(--good)} .now-chip.harvest{background:var(--wheat-soft);color:var(--warn)} .now-chip.soon{background:var(--water-soft);color:var(--water)}
+.cal-months,.cal-row{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;align-items:center}
+.cal-months{font-size:.7rem;color:var(--ink-dim);padding-bottom:4px}
+.cal-months .m{display:grid;grid-template-columns:repeat(12,1fr);text-align:left}
+.cal-row{padding:7px 0;border-bottom:1px solid var(--line)}
+.cal-row:last-child{border-bottom:0}
+.cal-name{font-size:.88rem;min-width:0}
+.cal-name .nowtxt{display:block;font-size:.74rem;color:var(--ink-dim)}
+.cal-name .nowtxt.sow{color:var(--good)} .cal-name .nowtxt.harvest{color:var(--warn)}
+.cal-track{position:relative;height:18px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--paper) 0,var(--paper) calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px),var(--line) calc(100%/12))}
+.cal-bar{position:absolute;top:3px;bottom:3px;border-radius:5px;min-width:5px;animation:grow-x .6s var(--ease) both;transform-origin:left}
+.cal-bar.sow{background:var(--leaf)} .cal-bar.harvest{background:var(--wheat)} .cal-bar.harvest.next{background:repeating-linear-gradient(135deg,var(--wheat) 0 4px,var(--wheat-soft) 4px 8px)}
+.cal-line{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:2px;pointer-events:none}
+.cal-line.frost{background:var(--water);opacity:.8} .cal-line.today{background:var(--bad)}
+.cal-key{margin-top:10px}
+.cal-soil{margin:10px 0 0;border-radius:10px;background:var(--moss-soft);padding:9px 12px;font-size:.88rem}
+.cal-notes{display:block;font-size:.74rem;color:var(--ink-dim);margin-top:2px}
+
+/* Forecast */
+.banner{border-radius:10px;padding:9px 12px;font-size:.9rem;margin:8px 0}
+.banner.freeze{background:var(--clay-soft);border:1px solid var(--clay);color:var(--ink)} .banner.chilly{background:var(--wheat-soft);border:1px solid var(--wheat)}
+.banner.info{background:var(--water-soft);border:1px solid var(--water)}
+.fc-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;align-items:baseline}
+.fc-save{font-size:1.05rem}
+.fc-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:10px}
+.fc-day{border:1px solid var(--line);border-radius:12px;padding:8px 6px;text-align:center;font-size:.78rem;background:var(--paper);line-height:1.35}
+.fc-day .d{font-weight:600;font-size:.85rem}
+.fc-day .t{color:var(--ink-dim)}
+.fc-day .act{margin-top:4px;font-weight:600;color:var(--ink-dim)}
+.fc-day.water{border-color:var(--water);background:var(--water-soft)} .fc-day.water .act{color:var(--water)}
+.fc-day.skip .act{color:var(--good)}
+.fc-day.cold{outline:2px solid var(--clay);outline-offset:-2px}
+
+/* Harvest log + labor + calibration */
+.log-form{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.log-form select{flex:1 1 180px} .log-form input{flex:0 1 130px}
+.prog{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.prog .meter{grid-column:1/-1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.prog .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--moss),var(--leaf));border-radius:99px}
+.prog .cal-chip{margin-left:6px}
+.cal-chip{display:inline-block;font-size:.7rem;font-weight:600;border-radius:6px;padding:1px 6px;background:var(--moss-soft);color:var(--good);white-space:nowrap}
+.entry{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;font-size:.85rem;border-bottom:1px dashed var(--line)}
+.entry button{border:0;background:none;color:var(--ink-dim);cursor:pointer;font-size:1.1rem;padding:2px 8px}
+.entry button:hover{color:var(--bad)}
+.log-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn.small-btn{padding:4px 12px;font-size:.8rem}
+
+@media (max-width:760px){
+  .cal-months,.cal-row{grid-template-columns:1fr;gap:4px}
+  .cal-months > span:first-child{display:none}
+  .cal-row{padding:9px 0}
+  .fc-days{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:minmax(84px,1fr);overflow-x:auto;padding-bottom:4px}
+  dialog#whySheet{margin:auto auto 0;width:100%;max-width:none;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto}
+  .log-form input,.log-form select{flex:1 1 100%}
+}

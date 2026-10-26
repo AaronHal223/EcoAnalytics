@@ -67,6 +67,9 @@
   <button data-tab="crops" role="tab">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-4 3-6 7-6 0 4-3 6-7 6z"/></svg>
     <span>Crop<span class="tab-long"> value</span></span></button>
+  <button data-tab="calendar" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4m6-4v4"/></svg>
+    <span>Calendar</span></button>
   <button data-tab="roi" role="tab">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2m0 8v2"/></svg>
     <span><span class="tab-long">Garden </span>ROI</span></button>
@@ -118,6 +121,22 @@
   </div>
 </section>
 
+<!-- CALENDAR -->
+<section class="tab" id="tab-calendar">
+  <div class="card">
+    <div class="row cal-head">
+      <h3>What to plant, and when</h3>
+      <div class="seg" id="calScope" role="radiogroup" aria-label="Which crops to show">
+        <button data-scope="plan" role="radio">My plan</button><button data-scope="all" role="radio">All crops</button>
+      </div>
+    </div>
+    <p class="small dim" id="calIntro" style="margin:0 0 10px"></p>
+    <div id="calNow"></div>
+  </div>
+  <div class="gap"></div>
+  <div class="card cal" id="calendar"></div>
+</section>
+
 <!-- ROI -->
 <section class="tab" id="tab-roi">
   <div class="grid split">
@@ -133,6 +152,8 @@
         <label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
         <label>One-time setup ($)<input type="number" step="10" inputmode="decimal" id="setupCost" value="0"></label>
         <label>Spread setup over (yrs)<input type="number" step="1" min="1" inputmode="numeric" id="setupYears" value="5"></label>
+        <label>Your time (hrs / week per 100 sq ft)<input type="number" step="0.25" min="0" inputmode="decimal" id="laborHrs" value="1"></label>
+        <label>Value your time ($ / hr, optional)<input type="number" step="1" min="0" inputmode="decimal" id="hourlyWage" value="0"></label>
         <label class="check"><input type="checkbox" id="organicOnly"> Organic fertilizers only</label>
       </div>
     </div>
@@ -142,10 +163,25 @@
       <div class="card"><h3>By bed</h3><div class="table-wrap"><table id="roiTable"></table></div></div>
     </div>
   </div>
+  <div class="gap"></div>
+  <div class="card" id="logCard">
+    <div class="row" style="flex-wrap:wrap"><h3>Harvest log <span class="small dim" style="font-weight:400">optional</span></h3>
+      <span class="small dim">Log what you pick. When a crop is done, finish its season and the app learns what your yard really produces.</span></div>
+    <div class="log-form">
+      <select id="logCrop" aria-label="Crop picked"></select>
+      <input type="number" id="logLb" min="0" step="0.1" inputmode="decimal" placeholder="lb picked" aria-label="Pounds picked">
+      <button class="btn" id="logAdd">Log harvest</button>
+    </div>
+    <div id="logProgress"></div>
+    <div id="logEntries"></div>
+    <div class="log-tools"><button class="btn ghost" id="logCsv">Download log (CSV)</button><button class="btn ghost" id="calReset">Reset calibration</button></div>
+  </div>
 </section>
 
 <!-- WATER -->
 <section class="tab" id="tab-water">
+  <div class="card" id="forecastCard"><div class="skeleton" style="height:90px"></div></div>
+  <div class="gap"></div>
   <div class="card whatif">
     <div><div class="eyebrow" style="margin-bottom:6px">How you water</div>
       <div class="seg" id="methodSeg" role="radiogroup" aria-label="Watering method">
@@ -180,10 +216,17 @@
 </section>
 
 <footer>
-  Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
+  Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather and forecast, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
   Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.
 </footer>
 </div>
+<dialog id="whySheet" aria-labelledby="whyTitle">
+  <div class="why-head"><div><div class="eyebrow">Where this number comes from</div><h3 id="whyTitle"></h3><div class="num why-sum" id="whySum"></div></div>
+    <button class="why-close" id="whyClose" aria-label="Close">&times;</button></div>
+  <ol class="why-steps" id="whySteps"></ol>
+  <p class="small why-caveat" id="whyCaveat" hidden></p>
+  <p class="small dim" id="whySources"></p>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="vendor/lp-solver.js"></script>

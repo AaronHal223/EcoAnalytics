@@ -49,3 +49,31 @@ test("Render blueprint publishes the public folder and runs tests", () => {
   assert.match(y, /staticPublishPath: \.\/public/);
   assert.match(y, /buildCommand: npm test/);
 });
+
+test("every element id the page script looks up exists in index.html", () => {
+  const html = fs.readFileSync(path.join(PUB, "index.html"), "utf8");
+  const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+  const js = fs.readFileSync(path.join(PUB, "js/app.js"), "utf8");
+  const used = new Set();
+  for (const m of js.matchAll(/\$\$?\("#([A-Za-z][\w-]*)(?:"\s*[,)]|[ \[.:])/g)) used.add(m[1]);   // $("#id") and $("#id child ...")
+  for (const m of js.matchAll(/\[\s*(?:"#[\w-]+"(?:,\s*)?)+\s*\]/g)) for (const x of m[0].matchAll(/"#([\w-]+)"/g)) used.add(x[1]);
+  assert.ok(used.size > 40, `only found ${used.size} ids; the pattern may be broken`);
+  for (const id of used) assert.ok(ids.has(id), `app.js uses #${id} but index.html has no such id`);
+});
+
+test("every tab button has a matching section, and ids are unique", () => {
+  const html = fs.readFileSync(path.join(PUB, "index.html"), "utf8");
+  const tabs = [...html.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
+  assert.ok(tabs.includes("calendar"));
+  for (const t of tabs) assert.ok(html.includes(`id="tab-${t}"`), `no section for tab ${t}`);
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+  assert.equal(new Set(ids).size, ids.length, `duplicate ids: ${ids.filter((x, i) => ids.indexOf(x) !== i)}`);
+});
+
+test("the service worker precaches every module the page loads", () => {
+  const sw = fs.readFileSync(path.join(PUB, "sw.js"), "utf8");
+  for (const f of walk(path.join(PUB, "js"))) {
+    const rel = "./" + path.relative(PUB, f).replace(/\\/g, "/");
+    assert.ok(sw.includes(`"${rel}"`), `sw.js SHELL is missing ${rel}`);
+  }
+});
