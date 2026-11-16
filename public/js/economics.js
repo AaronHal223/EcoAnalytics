@@ -9,6 +9,7 @@
 
 import { CROPS, FERTILIZERS, PH_PRODUCTS, COMPOST } from "./data.js";
 import { MONTHS } from "./climate.js";
+import { sunFactor } from "./sun.js";
 
 const GAL_PER_SQFT_INCH = 0.623;
 export const N_RATE = { low: 0.08, med: 0.25, high: 0.35 };   // lb N / 100 sq ft / planting
@@ -87,27 +88,27 @@ export function cheapestNPrice(organicOnly) {
 }
 
 /** Predicted lb per sq ft for a full season, before any personal calibration. */
-export function baseYieldPerSqft(crop, soil, cl) {
+export function baseYieldPerSqft(crop, soil, cl, sun = null) {
   const fit = seasonFit(crop, cl);
-  return crop.yield_lb_per_sqft * fit.plantings * fit.fraction * phFactor(crop, soil.values.ph.value);
+  return crop.yield_lb_per_sqft * fit.plantings * fit.fraction * phFactor(crop, soil.values.ph.value) * sunFactor(crop.id, sun);
 }
 
-export function rankCrops(soil, cl, { waterRate = DEFAULT_WATER_RATE, method = "hose", organicOnly = false, prices = {}, yieldAdjust = {} } = {}) {
+export function rankCrops(soil, cl, { waterRate = DEFAULT_WATER_RATE, method = "hose", organicOnly = false, prices = {}, yieldAdjust = {}, sunHours = null } = {}) {
   const ph = soil.values.ph.value;
   const nFree = soil.n_mineralized_lb_per_100sqft / 100;
   const nPrice = cheapestNPrice(organicOnly);
   return CROPS.map(c => {
     const price = prices[c.id] ?? c.price_per_lb;
-    const fit = seasonFit(c, cl), pf = phFactor(c, ph);
+    const fit = seasonFit(c, cl), pf = phFactor(c, ph), sf = sunFactor(c.id, sunHours);
     const adj = yieldAdjust[c.id] ?? 1;
-    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * adj;
+    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * sf * adj;
     const value = y * price, seed = c.cost_per_sqft * fit.plantings;
     const gal = gallons(sum(monthlyIrrigationIn(c, fit, cl, soil.texture_class)), 1, method);
     const water = gal / 1000 * waterRate;
     const fert = Math.max(0, N_RATE[c.n_demand] / 100 * fit.plantings - 0.5 * nFree) * nPrice;
     return {
       id: c.id, name: c.name, season: c.season, plantings: fit.plantings, season_fraction: fit.fraction,
-      soil_fit: pf, calibration: adj === 1 ? null : r(adj), yield_lb_per_sqft: r(y), value_per_sqft: r(value), seed_cost_per_sqft: r(seed),
+      soil_fit: pf, sun_fit: sf, calibration: adj === 1 ? null : r(adj), yield_lb_per_sqft: r(y), value_per_sqft: r(value), seed_cost_per_sqft: r(seed),
       water_gal_per_sqft: r(gal, 1), water_cost_per_sqft: r(water, 3), fertilizer_cost_per_sqft: r(fert, 3),
       net_per_sqft: r(value - seed - water - fert),
       value_per_100_gal: gal > 0.05 ? r(value / gal * 100) : null,
@@ -273,9 +274,10 @@ export function gardenROI(plan, soil, cl, { waterRate = DEFAULT_WATER_RATE, meth
   for (const item of plan) {
     const c = CROP_BY_ID[item.crop], price = prices[c.id] ?? c.price_per_lb;
     const fit = seasonFit(c, cl), pf = phFactor(c, soil.values.ph.value), adj = yieldAdjust[c.id] ?? 1;
-    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * adj * item.sqft;
+    const sun = Number.isFinite(item.sun) ? item.sun : null, sf = sunFactor(c.id, sun);
+    const y = c.yield_lb_per_sqft * fit.plantings * fit.fraction * pf * sf * adj * item.sqft;
     const s = c.cost_per_sqft * fit.plantings * item.sqft;
-    rows.push({ crop: c.name, sqft: item.sqft, harvest_lb: r(y, 1), value: r(y * price), seed_cost: r(s), calibration: adj === 1 ? null : r(adj) });
+    rows.push({ crop: c.name, id: c.id, sqft: item.sqft, sun, sun_fit: sf, harvest_lb: r(y, 1), value: r(y * price), seed_cost: r(s), calibration: adj === 1 ? null : r(adj) });
     lb += y; value += y * price; seeds += s; area += item.sqft;
   }
   const setupPerYear = setupCost / Math.max(1, setupYears);

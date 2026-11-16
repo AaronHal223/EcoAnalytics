@@ -7,6 +7,7 @@
 // the numbers. Pure functions; app.js only renders what comes back.
 
 import { CROP_BY_ID, IRRIGATION_EFFICIENCY } from "./economics.js";
+import { SUN_NEED } from "./sun.js";
 
 const money = (v, d = 2) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const num = (v, d = 1) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
@@ -70,8 +71,8 @@ function explainRoi(key, d) {
   const r = d.roi;
   if (d.emptyPlan) return null;
   if (key === "value") return { title: "Harvest value", summary: `${money(r.harvest_value, 0)} from ${num(r.harvest_lb)} lb`,
-    steps: ["For each bed: size × typical yield per sq ft × plantings that fit your season × how well the season fits × how well your soil pH suits the crop (x your calibration, if you have finished a season).",
-      ...r.rows.map(x => `${x.crop}: ${num(x.sqft, 0)} sq ft gives ${num(x.harvest_lb)} lb, worth ${money(x.value)}${x.calibration ? ` (your yard's calibration ×${x.calibration})` : ""}.`),
+    steps: ["For each bed: size × typical yield per sq ft × plantings that fit your season × how well the season fits × how well your soil pH suits the crop × how much of the sun it needs the bed gets (x your calibration, if you have finished a season).",
+      ...r.rows.map(x => `${x.crop}: ${num(x.sqft, 0)} sq ft gives ${num(x.harvest_lb)} lb, worth ${money(x.value)}${x.sun_fit < 1 ? ` (${num(x.sun)} h of sun gives ${Math.round(x.sun_fit * 100)}% of a full crop)` : ""}${x.calibration ? ` (your yard's calibration ×${x.calibration})` : ""}.`),
       "Prices are typical US supermarket prices per pound (USDA ERS fruit and vegetable prices, rounded). Edit js/data.js to match your store."],
     sources: ["USDA ERS Fruit and Vegetable Prices (rounded)", d.climate.source], caveat: "Yields are for an intensively planted bed. Log your real harvests to calibrate them to your yard." };
   if (key === "cost") {
@@ -140,8 +141,22 @@ function explainCrop(id, d) {
     steps: [`Harvest value ${money(row.value_per_sqft)} (${num(row.yield_lb_per_sqft, 2)} lb per sq ft at the store price).`,
       `Minus seeds and plants ${money(row.seed_cost_per_sqft)}.`, `Minus water ${money(row.water_cost_per_sqft, 3)} (${num(row.water_gal_per_sqft)} gal per sq ft).`,
       `Minus nitrogen ${money(row.fertilizer_cost_per_sqft, 3)}.`, `Equals ${money(row.net_per_sqft)} net per sq ft for one year.`,
-      row.calibration ? `This crop's yield is scaled by ×${row.calibration} from your own harvest log.` : row.note, row.soil_note],
+      row.calibration ? `This crop's yield is scaled by ×${row.calibration} from your own harvest log.` : row.note, row.soil_note,
+      d.settings?.sunHours != null ? `Sun: ranked for ${num(d.settings.sunHours)} hours of direct sun a day. ${row.sun_fit < 1 ? `It needs about ${SUN_NEED[id]}, so it gives ${Math.round(row.sun_fit * 100)}% of a full crop (yield falls a little faster than the light does).` : "That's enough for a full crop."}` : "Sun: assumes full sun (8+ hours). Pick your yard's sun above the table, or measure each bed on Garden ROI.",
+      d.risk?.[id] ? `Across ${d.risk[id].n} past seasons here: ${money(d.risk[id].bad)} in a bad (1-in-10) year, ${money(d.risk[id].typical)} typical, ${money(d.risk[id].good)} in a good year. It paid its way in ${d.risk[id].positive} of them.` : null],
     sources: [], caveat: null };
+}
+
+function explainRisk(key, d) {
+  const p = d.planRisk;
+  if (key !== "plan" || !p) return null;
+  return { title: "Good year, bad year", summary: `Paid off in ${p.positive} of ${p.n} past seasons`,
+    steps: [`Downloads the real daily weather at your garden for each of the last ${p.n} years.`,
+      "For each year on its own, works out that year's frost dates, heat (growing degree days), cool-crop days, rain and evapotranspiration.",
+      "Runs your plan through each year with the same yield, water and fertilizer models as the rest of the app, at today's prices.",
+      `A "bad year" is the 10th percentile: about 1 season in 10 is worse. Here: ${money(p.bad, 0)}. Typical (median): ${money(p.typical, 0)}. Best: ${money(p.best, 0)} in ${p.best_year}; worst: ${money(p.worst, 0)} in ${p.worst_year}.`],
+    sources: d.historySource ? [d.historySource] : [],
+    caveat: "Weather is the only thing that varies here. Pests, hail and a busy summer can also cost a harvest." };
 }
 
 /** Returns { title, summary, steps[], sources[], caveat } for a key like "soil:ph", or null. */
@@ -154,5 +169,6 @@ export function explain(key, d) {
   if (kind === "water") return explainWater(id, d);
   if (kind === "fert") return explainFert(id, d);
   if (kind === "crop") return explainCrop(id, d);
+  if (kind === "risk") return explainRisk(id, d);
   return null;
 }

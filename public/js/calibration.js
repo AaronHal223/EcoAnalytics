@@ -24,8 +24,9 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export function predictedLb(plan, cropId, soil, cl) {
   const c = CROP_BY_ID[cropId];
   if (!c) return 0;
-  const sqft = plan.filter(p => p.crop === cropId).reduce((a, p) => a + (+p.sqft || 0), 0);
-  return r(baseYieldPerSqft(c, soil, cl) * sqft, 1);
+  // Each bed's own sun hours count, so a shady bed isn't mistaken for a poor yard.
+  return r(plan.filter(p => p.crop === cropId)
+    .reduce((a, p) => a + baseYieldPerSqft(c, soil, cl, Number.isFinite(p.sun) ? p.sun : null) * (+p.sqft || 0), 0), 1);
 }
 
 export const sqftOf = (plan, cropId) => plan.filter(p => p.crop === cropId).reduce((a, p) => a + (+p.sqft || 0), 0);

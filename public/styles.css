@@ -167,7 +167,8 @@ td.r,th.r{text-align:right}
 .medal{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--moss-soft);color:var(--moss);font-size:.75rem;font-weight:700}
 
 .plan-row{display:grid;grid-template-columns:1fr 70px 40px;gap:8px;align-items:center;margin-bottom:4px}
-.plan-row + .plan-slider{margin:0 48px 10px 0}
+.plan-row + .plan-slider{margin:0 0 10px 0;display:flex;align-items:center;gap:8px}
+.plan-slider input[type=range]{flex:1;min-width:0}
 .plan-row button{border:1px solid var(--line);background:var(--paper);border-radius:10px;cursor:pointer;color:var(--ink-dim);font-size:1.1rem;height:40px}
 .plan-row button:hover{color:var(--bad);border-color:var(--bad)}
 .stack{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:10px 0}
@@ -269,9 +270,9 @@ button.why{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid v
 button.why:hover,button.why:focus-visible{background:var(--moss);color:var(--on-accent)}
 .why-inline{margin-left:6px;vertical-align:1px}
 
-dialog#whySheet{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);padding:18px 20px;max-width:540px;width:calc(100% - 32px);box-shadow:0 24px 60px -20px rgba(0,0,0,.5)}
-dialog#whySheet::backdrop{background:rgba(10,20,14,.5)}
-dialog#whySheet[open]{animation:rise .3s var(--ease) both}
+dialog#whySheet,dialog.sheet{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);padding:18px 20px;max-width:540px;width:calc(100% - 32px);box-shadow:0 24px 60px -20px rgba(0,0,0,.5)}
+dialog#whySheet::backdrop,dialog.sheet::backdrop{background:rgba(10,20,14,.5)}
+dialog#whySheet[open],dialog.sheet[open]{animation:rise .3s var(--ease) both}
 .why-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .why-head h3{font-size:1.3rem;margin-top:2px}
 .why-sum{color:var(--moss);font-size:1.05rem;margin-top:2px}
@@ -336,6 +337,81 @@ dialog#whySheet[open]{animation:rise .3s var(--ease) both}
   .cal-months > span:first-child{display:none}
   .cal-row{padding:9px 0}
   .fc-days{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:minmax(84px,1fr);overflow-x:auto;padding-bottom:4px}
-  dialog#whySheet{margin:auto auto 0;width:100%;max-width:none;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto}
+  dialog#whySheet,dialog.sheet{margin:auto auto 0;width:100%;max-width:none;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto}
   .log-form input,.log-form select{flex:1 1 100%}
 }
+
+/* ===========================================================================
+   Sun, risk, plan helpers, guide
+   =========================================================================== */
+.rank-controls{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.sunbtn{flex:none;display:inline-flex;align-items:center;gap:4px;width:auto;min-width:64px;height:30px;padding:0 9px;border-radius:999px;
+  border:1px solid var(--wheat);background:var(--wheat-soft);color:var(--warn);font:600 .78rem "IBM Plex Sans",sans-serif;cursor:pointer}
+.sunbtn svg{width:15px;height:15px}
+.sunbtn.short{border-color:var(--bad);background:var(--clay-soft);color:var(--bad)}
+.auto-box{margin-top:12px;padding:12px;border-radius:12px;background:var(--moss-soft);border:1px solid var(--line)}
+.companions{margin-top:12px}
+.companions:empty{display:none}
+.cal-actions{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:12px}
+.cal-actions .small{flex:1 1 220px}
+.risk-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.risk-tiles > div{display:grid;gap:1px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.risk-tiles strong{font-size:1.05rem}
+.big.pos{color:var(--good)} .big.neg{color:var(--bad)}
+label.btn{display:inline-flex;align-items:center;font-weight:600;border-radius:10px;padding:8px 16px;cursor:pointer}
+label.btn.ghost{background:transparent;color:var(--moss);border:1px solid var(--moss)}
+button.link{font:inherit;font-weight:inherit;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:var(--sage);text-underline-offset:3px}
+button.link:hover{color:var(--moss)}
+footer a{color:var(--moss)}
+
+.problems details{border:1px solid var(--line);border-radius:12px;background:var(--paper);margin:0 0 8px;overflow:hidden}
+.problems summary{cursor:pointer;padding:10px 12px;font-weight:600;list-style:none}
+.problems summary::-webkit-details-marker{display:none}
+.problems summary::before{content:"+";display:inline-block;width:1.1em;color:var(--moss);font-weight:700}
+.problems details[open] summary::before{content:"−"}
+.prob-body{padding:0 14px 12px}
+.fixes{margin:0;padding-left:20px;font-size:.9rem}
+.fixes li{margin:4px 0}
+.guide-search{max-width:240px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--paper);color:var(--ink)}
+.guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:12px}
+.guide-card{display:grid;gap:4px;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:10px 12px;cursor:pointer;font:inherit;color:var(--ink);transition:border-color .2s,transform .2s var(--ease)}
+.guide-card:hover{border-color:var(--moss);transform:translateY(-1px)}
+.guide-dl{display:grid;grid-template-columns:130px minmax(0,1fr);gap:6px 12px;margin:12px 0 0;font-size:.9rem}
+.guide-dl dt{color:var(--ink-dim);font-weight:600}
+.guide-dl dd{margin:0}
+.pest{border-top:1px dashed var(--line);padding:7px 0}
+
+.sun-mode{margin:12px 0 8px}
+.sun-pane p{margin:6px 0 10px}
+.viewfinder{position:relative;aspect-ratio:4/3;max-height:42vh;width:100%;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#9cc3d8,#cfe3d0 60%,#6b8f5a)}
+.viewfinder video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.viewfinder .cross{position:absolute;left:50%;top:50%;width:64px;height:64px;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.viewfinder .cross::before,.viewfinder .cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.viewfinder .cross::before{left:50%;top:-14px;bottom:-14px;width:2px;transform:translateX(-50%)}
+.viewfinder .cross::after{top:50%;left:-14px;right:-14px;height:2px;transform:translateY(-50%)}
+.vf-read{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.55);color:#fff;border-radius:8px;padding:4px 9px;font-size:.85rem}
+.viewfinder.live .cross{border-color:#d9f99d}
+.cover{margin-top:8px}
+.cover .cells{display:flex;gap:1px;height:10px}
+.cover .cells i{flex:1;background:var(--line);border-radius:2px}
+.cover .cells i.on{background:var(--leaf)}
+.cover-marks{position:relative;height:16px}
+.cover-marks span{position:absolute;transform:translateX(-50%);top:1px}
+.sun-result{display:grid;gap:6px;margin-top:12px;padding:12px;border-radius:12px;background:var(--wheat-soft);border:1px solid var(--wheat)}
+.sun-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+
+@media (max-width:760px){
+  nav.tabs button{font-size:.62rem;padding:6px 0}
+  nav.tabs button svg{width:20px;height:20px}
+  .rank-controls{gap:10px}
+  .rank-controls .seg{max-width:100%;overflow-x:auto}
+  .seg button{padding:6px 10px}
+  .guide-grid{grid-template-columns:1fr}
+  .guide-dl{grid-template-columns:1fr;gap:0}
+  .guide-dl dd{margin-bottom:8px}
+  .guide-search{max-width:none;width:100%;margin-top:8px}
+  .risk-tiles strong{font-size:.95rem}
+}
+
+#rankTable td:nth-last-child(2){min-width:170px}

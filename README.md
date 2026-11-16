@@ -28,6 +28,7 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 | **Garden ROI** | Bed-by-bed plan with size sliders: harvest value at store prices, yearly cost, net savings, return %, cost per pound, payback time. Also **your time**: hours of work and what the garden pays per hour (optionally counted as a cost). Includes the optional **harvest log**. |
 | **Water cost** | A **7-day watering plan** from the live forecast (water or skip each day, with gallons and dollars, plus a freeze warning for tender crops), then month-by-month irrigation beyond rainfall in gallons and dollars. Try hose vs. drip vs. sprinkler and drag your water rate to see the effect instantly. Tap or hover any bar for its value. |
 | **Fertilizer plan** | The cheapest **whole-bag** shopping list that covers your plan's N-P-K needs (solved as a mixed-integer program), plus lime or sulfur for pH and compost for organic matter. Organic-only mode included. |
+| **Guide** | A **problem solver** (yellow leaves, blossom-end rot, holes, mildew, bolting, no fruit…) with the cheapest fixes first and notes about *your* soil where they matter, plus a **growing guide** for every crop: spacing, watering, when it's ready, storage, good and bad neighbours, and the pests you'll actually meet. |
 
 ### What makes it different
 
@@ -35,6 +36,13 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 - **Soil-aware planning.** Calendars elsewhere use frost dates only. This one also uses your soil (`js/planner.js`).
 - **Full-cost ROI.** Seeds, soil, water, setup and, if you want, your time.
 - **Watering saved, in dollars.** Rain you can count on means a skipped watering, measured against a timer that ignores rain (`js/forecast.js`).
+- **Sun, measured at each bed.** Tap the sun button on a bed and either sweep your phone's camera along the skyline (the compass and tilt sensors trace trees and roofs; nothing is recorded or uploaded) or answer five "how tall do obstacles look" questions. The app traces the sun's real path for your latitude and counts hours of direct sun, and each crop's yield scales with what it gets: tomatoes need about 8 hours, lettuce about 4 (`js/sun.js`).
+- **Good year, bad year.** Your plan is replayed through each of the last 15 seasons of real local weather with the same models. You see the odds ("paid off in 13 of 15 seasons"), a bad (1-in-10) year, a typical year and the best, and every crop gets a range. Rank by "Bad year (safest)" to favour crops that hold up (`js/risk.js`).
+- **Plan it for me.** Give it your space and sun; it fills it with the crops that pay best here in a typical year *and* a bad one, no more than a quarter of the space each.
+- **Companion check.** Flags pairs traditionally kept apart (tomatoes and potatoes share blight) and points out good neighbours. Shown as tips only; the evidence is mixed, so they never change your numbers (`js/guide.js`).
+- **Reminders in your own calendar.** One tap saves your plan's planting and harvest dates as a calendar file with an alert the day before. Works with Apple, Google and Outlook; no notifications service needed.
+- **Share a plan as a link.** The plan travels after the `#` in the link, which is never sent to any server. Whoever opens it sees it worked out for *their* soil and weather (`js/share.js`).
+- **Your data stays yours.** No account, no tracking, no ads. Save a backup file and restore it on another phone.
 - **It learns your yard.** Log pounds picked, press **Finish season**, and that crop's yield is scaled by what you actually got (clamped, averaged over the last three seasons, never compounding on itself). Logging is optional (`js/calibration.js`).
 
 The watering model, calendar shifts and labor hours are simple rules of thumb, and each says so in its **i** sheet. The labor default (1 hour per week per 100 sq ft) is an assumption you should change.
@@ -70,6 +78,7 @@ Results are cached in your browser for 30 days, so return visits are instant and
 | [ISRIC SoilGrids 2.0](https://soilgrids.org) | Total nitrogen; backup where the survey has no data (e.g. "Urban land") |
 | [Open-Meteo historical weather](https://open-meteo.com) | 3 years of daily temperature, rain, evapotranspiration: frost dates, growing degree days, irrigation |
 | [Open-Meteo forecast](https://open-meteo.com/en/docs) | Next 7 days (plus 2 past days): the watering plan and freeze warnings. Cached 2 hours; if it's unreachable the card says so and nothing else is affected |
+| [Open-Meteo historical weather](https://open-meteo.com), 15 years | Good year / bad year: each past season replayed through the plan. Loaded after everything else and cached 30 days |
 | [OpenStreetMap Nominatim](https://nominatim.org) | Street address to coordinates |
 | [Zippopotam.us](https://zippopotam.us) | ZIP code to coordinates |
 | [GeoJS](https://www.geojs.io) (backup: [ipapi.co](https://ipapi.co)) | Connection location and network owner |
@@ -104,7 +113,7 @@ Add `?offline=1` to the URL to run on built-in estimates with no network calls.
 npm test
 ```
 
-80 tests (Node's built-in runner, no dependencies) cover location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
+97 tests (Node's built-in runner, no dependencies) cover the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
 
 ## Make it yours
 
@@ -127,6 +136,10 @@ public/                  <- everything that gets published
     planner.js           soil-aware planting calendar
     forecast.js          7-day forecast, watering plan, freeze warning
     calibration.js       harvest log and per-crop yield calibration
+    sun.js               sun path, skyline from camera scan or estimate, sun hours, crop sun needs
+    risk.js              15 past seasons: crop ranges, plan odds, "Plan it for me"
+    guide.js             crop guide, companion check, problem solver
+    share.js             plan links, calendar (.ics) file, backup and restore
     provenance.js        "where this number comes from" explanations
     economics.js         crop ranking, water cost, fertilizer optimizer, ROI, labor
     data.js              editable crop and fertilizer tables
@@ -136,8 +149,14 @@ tests/                   node --test suite
 render.yaml              Render hosting blueprint
 ```
 
+## Free and open
+
+EcoAnalytics is free for anyone, with no account, ads or tracking, and the code is open under the [MIT licence](LICENSE). It costs nothing to run: a static site on GitHub Pages, using only free public data services. Corrections to prices, yields and the crop guide are especially welcome: everything lives in `public/js/data.js` and `public/js/guide.js`.
+
 ## Limits worth knowing
 
 - Soil surveys describe **native** soil. Raised beds filled with bagged mix, or yards built on construction fill, can be very different. A $15-25 soil test from your state's extension office is the single best upgrade.
 - Prices are typical US supermarket and garden-center values. Edit them to match yours.
 - US only (USDA soil survey).
+- The camera scan needs a phone that shares its compass with web pages (iPhone Safari and Android Chrome do). Elsewhere use the quick estimate.
+- Good year / bad year varies the weather only. Pests, hail and a busy summer can also cost a harvest.

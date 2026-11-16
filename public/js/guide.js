@@ -1,0 +1,189 @@
+// Crop guide, companion check and problem solver.
+//
+// The everyday knowledge every grower needs, in one place and tied to your
+// own soil: spacing, when it's ready, what it likes to grow next to, the pests
+// you'll actually meet and the cheapest fix for each. Fixes favour things you
+// already have or can get for a few dollars (hand-picking, row cover, water
+// timing, soap spray) before anything you'd have to buy in a bottle.
+//
+// Companion pairings are traditional gardening advice; research support is
+// mixed, so the app shows them as tips and never changes your numbers with them.
+
+import { CROP_BY_ID } from "./economics.js";
+
+/**
+ * Per crop: spacing (square-foot gardening counts), how to tell it's ready, how to store it,
+ * friends / avoid (crop ids), and common pests or diseases with a cheap fix.
+ */
+export const GUIDE = {
+  tomato: { spacing: "1 plant per 4 sq ft (1 per sq ft if pruned to one stem and staked)", ready: "Fully coloured and slightly soft. Picked at first blush, they finish ripening on the counter.",
+    store: "Counter, stem side down. Never the fridge: it kills the flavour.", water: "Deep and even, 1-2 in a week. Mulch to stop cracking and blossom-end rot.",
+    friends: ["basil", "carrot", "lettuce", "onion"], avoid: ["potato", "sweet_corn"],
+    pests: [["Tomato hornworm", "Big green caterpillars strip leaves overnight", "Hand-pick at dusk; leave any with white cocoons on their backs (parasitic wasps at work)."],
+      ["Early blight", "Brown spots with rings on lower leaves", "Remove spotted leaves, mulch so soil can't splash up, water the soil not the leaves."]] },
+  cherry_tomato: { spacing: "1 plant per 4 sq ft, staked or caged", ready: "Full colour; they come off with a light tug.", store: "Counter, eat within a few days.",
+    water: "Deep and even. Uneven watering splits the fruit.", friends: ["basil", "carrot", "lettuce", "onion"], avoid: ["potato", "sweet_corn"],
+    pests: [["Fruit splitting", "Cracks after heavy rain", "Pick ripe fruit before a storm; mulch and water evenly."],
+      ["Hornworm", "Chewed leaves, dark droppings", "Hand-pick at dusk."]] },
+  pepper: { spacing: "1 plant per sq ft", ready: "Firm and glossy. Green is ready; red, yellow or orange is sweeter and worth more.",
+    store: "Fridge drawer, up to 2 weeks.", water: "Even moisture; peppers drop flowers when stressed.", friends: ["basil", "onion", "carrot"], avoid: ["bush_bean"],
+    pests: [["Aphids", "Clusters under leaves, sticky shine", "Blast off with a hose; then a spray of 1 tsp mild dish soap per quart of water."],
+      ["Sunscald", "Pale papery patches on fruit", "Keep the leaf cover; avoid heavy pruning."]] },
+  zucchini: { spacing: "1 plant per 4-9 sq ft", ready: "6-8 in long. Check daily: they triple in two days.", store: "Fridge, about a week.",
+    water: "Deep, at the base; wet leaves invite mildew.", friends: ["bush_bean", "snap_pea", "radish"], avoid: ["potato"],
+    pests: [["Squash vine borer", "Plant suddenly wilts, sawdust at the base", "Wrap the bottom of the stem in foil when planting; cover with row cover until flowers open."],
+      ["Powdery mildew", "White powder on leaves", "Spray 1 part milk to 9 parts water weekly; remove the worst leaves."],
+      ["No fruit", "Flowers drop, tiny fruit shrivels", "Poor pollination: brush pollen from a male flower into a female one with a small paintbrush."]] },
+  cucumber: { spacing: "2 plants per sq ft on a trellis", ready: "Before seeds harden: 6-8 in for slicers. Yellowing means overripe.",
+    store: "Fridge, about a week. Keep away from tomatoes and bananas.", water: "Lots and evenly; bitter cucumbers mean they went thirsty.",
+    friends: ["bush_bean", "snap_pea", "radish", "lettuce"], avoid: ["potato"],
+    pests: [["Cucumber beetles", "Yellow-and-black beetles, chewed flowers", "Row cover until flowering; yellow sticky cards; hand-pick in the morning."],
+      ["Powdery mildew", "White powder on leaves", "Milk spray (1:9) weekly and good air flow on the trellis."]] },
+  bush_bean: { spacing: "9 plants per sq ft", ready: "Pencil-thick and snapping crisp, before the beans bulge.", store: "Fridge, a week.",
+    water: "Steady, especially while flowering.", friends: ["carrot", "cucumber", "potato", "sweet_corn"], avoid: ["onion", "garlic"],
+    pests: [["Mexican bean beetle", "Lacy, skeletonised leaves", "Hand-pick the yellow larvae under leaves; row cover early."],
+      ["Rust", "Orange dusty spots", "Don't work among wet plants; pull badly hit plants."]] },
+  sweet_corn: { spacing: "1 plant per sq ft, in a block at least 4 x 4 so it pollinates", ready: "Silks brown and dry; a squeezed kernel gives milky juice.",
+    store: "Eat the same day if you can; sugar turns to starch fast.", water: "Critical at tasseling and silking.",
+    friends: ["bush_bean", "cucumber", "zucchini"], avoid: ["tomato"],
+    pests: [["Corn earworm", "Caterpillar in the tip of the ear", "A few drops of vegetable oil on the silks once they wilt; or just cut the tip off."],
+      ["Raccoons", "Ears ripped open the night before you'd pick", "Pick the day it's ready; a radio on overnight helps."]] },
+  basil: { spacing: "4 plants per sq ft", ready: "Pick leaves from the top once the plant has 6 sets; pinch flower buds.",
+    store: "Stems in a glass of water on the counter, like flowers.", water: "Even moisture; hates cold.", friends: ["tomato", "pepper"], avoid: [],
+    pests: [["Downy mildew", "Yellowing leaves, grey fuzz underneath", "Space for air flow, water in the morning; resistant varieties exist."],
+      ["Slugs", "Ragged holes overnight", "Beer traps or a board to collect them in the morning."]] },
+  lettuce: { spacing: "4 plants per sq ft (16 for baby leaf)", ready: "Cut outer leaves any time; whole heads when firm.",
+    store: "Fridge in a bag with a paper towel, a week.", water: "Light and often; it is mostly water.", friends: ["carrot", "radish", "tomato", "cucumber"], avoid: [],
+    pests: [["Bolting", "Shoots up, turns bitter in heat", "Sow in spring and fall; plant in afternoon shade in summer; choose slow-bolt varieties."],
+      ["Slugs", "Holes and slime trails", "Beer traps; water in the morning so the bed is dry at night."]] },
+  spinach: { spacing: "9 plants per sq ft", ready: "Leaves 3-4 in; cut outer leaves to keep it going.", store: "Fridge, 5-7 days.",
+    water: "Even moisture.", friends: ["snap_pea", "radish", "lettuce"], avoid: [],
+    pests: [["Bolting", "Flowers in long days or heat", "Sow early spring and late summer; it loves cold."],
+      ["Leaf miners", "Pale winding trails in leaves", "Pick off affected leaves; row cover."]] },
+  kale: { spacing: "1 plant per sq ft", ready: "Pick lower leaves when hand-sized. Sweeter after a frost.", store: "Fridge, a week or more.",
+    water: "Even moisture.", friends: ["beet", "onion", "potato"], avoid: [],
+    pests: [["Cabbage worms", "Green caterpillars, holes in leaves", "Row cover from day one; hand-pick; white butterflies mean caterpillars are on the way."],
+      ["Aphids", "Grey clusters in leaf folds", "Hose them off; soap spray (1 tsp per quart)."]] },
+  chard: { spacing: "4 plants per sq ft", ready: "Outer leaves once 8-10 in; it regrows all season.", store: "Fridge, a week.",
+    water: "Even moisture.", friends: ["bush_bean", "onion"], avoid: [],
+    pests: [["Leaf miners", "Pale tunnels", "Pick off affected leaves."], ["Slugs", "Holes overnight", "Beer traps."]] },
+  snap_pea: { spacing: "8 plants per sq ft on a trellis", ready: "Pods plump and crisp, peas just forming.", store: "Fridge, 5 days; sweetest same day.",
+    water: "Even moisture, more once flowering.", friends: ["carrot", "radish", "spinach", "cucumber"], avoid: ["onion", "garlic"],
+    pests: [["Powdery mildew", "White powder late in the season", "Milk spray (1:9); plant early so they finish before summer heat."],
+      ["Birds", "Seedlings pulled up", "Lay netting or a row cover until plants are 4 in tall."]] },
+  carrot: { spacing: "16 per sq ft", ready: "Shoulders 3/4 in across; pull one to check.", store: "Tops off, fridge in a bag, for weeks.",
+    water: "Keep the surface moist until they sprout (up to 3 weeks), then deep and less often.", friends: ["tomato", "lettuce", "onion", "snap_pea"], avoid: [],
+    pests: [["Forked or stunted roots", "Twisted carrots", "Loosen soil deeply, remove stones; skip fresh manure before carrots."],
+      ["Carrot rust fly", "Rusty tunnels in roots", "Row cover; sow after the first spring generation (late May)."]] },
+  radish: { spacing: "16 per sq ft", ready: "3-4 weeks; pull when the size of a large marble. Left longer they go woody.",
+    store: "Tops off, fridge, two weeks.", water: "Even; dry spells make them hot and pithy.", friends: ["lettuce", "spinach", "snap_pea", "cucumber"], avoid: [],
+    pests: [["Flea beetles", "Tiny shot holes in leaves", "Row cover; they're cosmetic on radishes, the roots are fine."],
+      ["All leaves, no root", "Big tops, thin roots", "Too much nitrogen or too crowded: thin to 2 in apart."]] },
+  beet: { spacing: "9 per sq ft", ready: "Roots 1.5-3 in across. The greens are good to eat too.", store: "Tops off (leave 1 in of stem), fridge for weeks.",
+    water: "Even moisture.", friends: ["onion", "lettuce", "kale"], avoid: [],
+    pests: [["Leaf miners", "Pale blotches on leaves", "Pick off affected leaves; row cover."],
+      ["Several small beets in a clump", "Each 'seed' is a cluster", "Thin to one plant every 3 in."]] },
+  onion: { spacing: "9 per sq ft (16 for green onions)", ready: "Tops flop over and yellow. Lift, dry in shade for 2 weeks.",
+    store: "Cool, dry, airy place; months.", water: "Even until bulbs form, then stop once tops fall.", friends: ["carrot", "beet", "tomato", "kale"], avoid: ["bush_bean", "snap_pea"],
+    pests: [["Thrips", "Silver streaks on leaves", "Hose spray; soap spray; don't over-fertilize."],
+      ["Small bulbs", "Never sized up", "Wrong day-length type: pick 'long-day' onions in the north, 'short-day' in the south."]] },
+  garlic: { spacing: "9 cloves per sq ft", ready: "Lower third of leaves brown, usually early summer.", store: "Cure 2-3 weeks somewhere airy, then a cool dry place for months.",
+    water: "Even in spring; stop 2 weeks before harvest.", friends: ["tomato", "carrot", "beet"], avoid: ["bush_bean", "snap_pea"],
+    pests: [["Scapes", "Curly flower stalks in late spring", "Cut them off (and eat them) so the bulb gets the energy."],
+      ["Rot", "Soft, mouldy bulbs", "Plant in well-drained soil; don't overwater."]] },
+  potato: { spacing: "1 per sq ft (or 4 in a deep container)", ready: "New potatoes when flowers open; full size 2 weeks after the tops die back.",
+    store: "Cool, dark, dry. Never in light (they turn green and bitter) or the fridge.", water: "Even moisture while tubers form.",
+    friends: ["bush_bean", "kale", "sweet_corn"], avoid: ["tomato", "cucumber", "zucchini"],
+    pests: [["Colorado potato beetle", "Striped beetles, orange clusters under leaves", "Hand-pick into soapy water; crush the orange clusters on the undersides of leaves."],
+      ["Green potatoes", "Green skin", "Hill soil over tubers as they grow; cut off any green parts."]] },
+};
+
+/** Friendly and unfriendly neighbours within the plan, for the plan card. */
+export function companionCheck(plan) {
+  const ids = [...new Set(plan.filter(p => p.sqft > 0).map(p => p.crop))].filter(id => GUIDE[id]);
+  const good = [], bad = [], seen = new Set();
+  for (const a of ids) for (const b of ids) {
+    if (a >= b) continue;
+    const key = a + "|" + b;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const ga = GUIDE[a], gb = GUIDE[b];
+    if (ga.avoid.includes(b) || gb.avoid.includes(a)) bad.push([a, b]);
+    else if (ga.friends.includes(b) || gb.friends.includes(a)) good.push([a, b]);
+  }
+  const name = id => CROP_BY_ID[id].name.replace(/\s*\(.*\)/, "");
+  return {
+    good: good.map(([a, b]) => ({ a, b, text: `${name(a)} and ${name(b)} are traditional good neighbours.` })),
+    bad: bad.map(([a, b]) => ({ a, b, text: `Keep ${name(a)} and ${name(b)} in separate beds. ${AVOID_WHY[[a, b].sort().join("|")] || "They are traditionally kept apart."}` })),
+  };
+}
+
+const AVOID_WHY = {
+  "potato|tomato": "They share blight, which spreads between them.",
+  "cherry_tomato|potato": "They share blight, which spreads between them.",
+  "sweet_corn|tomato": "Corn earworm and tomato fruitworm are the same pest.",
+  "cherry_tomato|sweet_corn": "Corn earworm and tomato fruitworm are the same pest.",
+  "bush_bean|onion": "Onions are said to stunt beans.", "bush_bean|garlic": "Garlic is said to stunt beans.",
+  "onion|snap_pea": "Onions are said to stunt peas.", "garlic|snap_pea": "Garlic is said to stunt peas.",
+  "cucumber|potato": "Both are heavy feeders and cucumbers can raise blight risk.",
+  "potato|zucchini": "Both are heavy feeders and share disease.",
+  "bush_bean|pepper": "Beans can crowd and shade peppers.",
+};
+
+// ---- Problem solver ---------------------------------------------------------------------------
+/**
+ * Common problems, each with likely causes and the cheapest fixes first.
+ * `soil(s)` may return an extra line tied to this yard's soil (or null).
+ */
+export const PROBLEMS = [
+  { id: "yellow_lower", title: "Lower leaves turning yellow", crops: "Most crops",
+    causes: ["Short of nitrogen (old leaves yellow first)", "Overwatering or waterlogged soil", "Normal ageing of the oldest leaves late in the season"],
+    fixes: ["Push a finger 2 in into the soil: if wet, water less", "Side-dress with compost or a little blood meal (about 1 tbsp per plant)", "Remove the yellow leaves; it's fine if only a few"],
+    soil: s => s.values.organic_matter_pct.value < 2.5 ? `Your soil is low in organic matter (${s.values.organic_matter_pct.value.toFixed(1)}%), so nitrogen runs short quickly. Compost helps most.` : null },
+  { id: "ber", title: "Dark sunken spot on the bottom of tomatoes or peppers", crops: "Tomatoes, peppers, zucchini",
+    causes: ["Blossom-end rot: the fruit couldn't get enough calcium, almost always because watering was uneven"],
+    fixes: ["Water deeply and on a schedule; mulch to keep moisture steady", "Pick off affected fruit; later fruit is usually fine", "Skip calcium sprays: the soil usually has enough"],
+    soil: s => s.values.ph.value < 6 ? `Your soil pH is ${s.values.ph.value.toFixed(1)}; acidic soil makes calcium harder to take up. The lime in your Fertilizer plan fixes both.` : null },
+  { id: "holes", title: "Holes in leaves", crops: "Greens, kale, beans, radishes",
+    causes: ["Tiny shot holes: flea beetles", "Ragged holes and slime trails: slugs or snails", "Big holes, green droppings: caterpillars"],
+    fixes: ["Look at night with a flashlight to see who it is", "Hand-pick; beer traps for slugs", "Row cover (about $10) keeps most pests off from day one"], soil: () => null },
+  { id: "powder", title: "White powder on leaves", crops: "Squash, cucumbers, peas",
+    causes: ["Powdery mildew, worst in humid weather with dry soil"],
+    fixes: ["Spray 1 part milk to 9 parts water weekly", "Water the soil, not the leaves, in the morning", "Remove the worst leaves and give plants more space"], soil: () => null },
+  { id: "wilt", title: "Plants wilting", crops: "Any",
+    causes: ["Wilts at midday but recovers by evening: normal heat stress", "Wilted in the morning: thirsty, or roots damaged", "Squash suddenly collapses: vine borer"],
+    fixes: ["Check soil moisture 2 in down before watering", "Water deeply in the morning; mulch", "For squash, look for a hole and sawdust at the base of the stem"],
+    soil: s => ["sand", "loamy sand"].includes(s.texture_class) ? "Your sandy soil drains fast, so plants run dry sooner. Mulch and compost help it hold water." : ["clay", "silty clay"].includes(s.texture_class) ? "Your clay soil holds water; wilting with wet soil can mean roots are short of air. Water less often." : null },
+  { id: "bolt", title: "Lettuce or spinach shooting up and turning bitter", crops: "Lettuce, spinach",
+    causes: ["Bolting, triggered by heat and long days"],
+    fixes: ["Sow in early spring and again in late summer (see Calendar)", "Give summer plantings afternoon shade", "Pick slow-bolt varieties"], soil: () => null },
+  { id: "no_fruit", title: "Lots of flowers, no fruit", crops: "Squash, cucumbers, tomatoes, peppers",
+    causes: ["Poor pollination", "Too hot (over 90°F days or 75°F nights) for tomatoes and peppers", "Too much nitrogen: all leaves"],
+    fixes: ["Hand-pollinate squash with a small brush", "Shake tomato plants gently midday", "Plant some flowers nearby for bees; ease off nitrogen"], soil: () => null },
+  { id: "cracks", title: "Tomatoes cracking or splitting", crops: "Tomatoes",
+    causes: ["A burst of water (heavy rain) after a dry spell"],
+    fixes: ["Water evenly and mulch", "Pick nearly ripe fruit before a big rain", "Eat cracked fruit soon; it won't keep"], soil: () => null },
+  { id: "sticky", title: "Sticky leaves, curled new growth", crops: "Peppers, kale, beans",
+    causes: ["Aphids (look under leaves)", "Often follows too much nitrogen"],
+    fixes: ["Blast them off with a hose", "Spray 1 tsp mild dish soap in a quart of water, every few days", "Ladybugs usually arrive within a couple of weeks"], soil: () => null },
+  { id: "seed_fail", title: "Seeds didn't come up", crops: "Carrots, beans, any direct-sown crop",
+    causes: ["Soil too cold (beans, corn need about 60°F)", "Surface dried out (carrots can take 3 weeks)", "Planted too deep"],
+    fixes: ["Wait for the dates in your Calendar", "Keep the surface moist; cover with a board or burlap for carrots", "Plant about 2-3 times as deep as the seed is wide"],
+    soil: s => ["clay", "silty clay", "clay loam"].includes(s.texture_class) ? "Clay soil warms slowly in spring; your Calendar already waits about a week for it." : null },
+  { id: "leggy", title: "Seedlings tall, thin and floppy", crops: "Seedlings started indoors",
+    causes: ["Not enough light"],
+    fixes: ["Put a cheap shop light 2-3 in above them, 14-16 hours a day", "A fan or brushing them daily makes stems sturdier", "Bury tomato seedlings deeper when transplanting"], soil: () => null },
+  { id: "small_roots", title: "Small or forked root crops", crops: "Carrots, beets, radishes, onions",
+    causes: ["Too crowded", "Hard or stony soil", "Too much nitrogen"],
+    fixes: ["Thin to the spacing in the guide", "Loosen the bed a foot deep, or grow short varieties", "Skip high-nitrogen fertilizer on roots"],
+    soil: s => s.values.clay_pct.value > 35 ? `Your soil is ${Math.round(s.values.clay_pct.value)}% clay; short or round carrot varieties do better.` : null },
+];
+
+/** Problem list with this yard's soil notes filled in. */
+export function problemsFor(soil) {
+  return PROBLEMS.map(p => {
+    let note = null;
+    try { note = soil ? p.soil(soil) : null; } catch { note = null; }
+    return { id: p.id, title: p.title, crops: p.crops, causes: p.causes, fixes: p.fixes, soil_note: note };
+  });
+}

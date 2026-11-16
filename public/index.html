@@ -79,6 +79,9 @@
   <button data-tab="fert" role="tab">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l2 5v11H5V9z"/><path d="M5 9h14M10 14h4"/></svg>
     <span>Fertilizer<span class="tab-long"> plan</span></span></button>
+  <button data-tab="guide" role="tab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5M9 8h7M9 12h5"/></svg>
+    <span>Guide</span></button>
 </nav>
 
 <!-- SOIL -->
@@ -113,9 +116,21 @@
 
 <!-- CROPS -->
 <section class="tab" id="tab-crops">
+  <div class="card rank-controls">
+    <div><div class="eyebrow" style="margin-bottom:6px">Sun where you'll plant</div>
+      <div class="seg" id="sunSeg" role="radiogroup" aria-label="Hours of direct sun">
+        <button data-sun="8" role="radio">Full 8h+</button><button data-sun="6" role="radio">6h</button><button data-sun="4" role="radio">4h</button><button data-sun="2" role="radio">Shade</button>
+      </div></div>
+    <div><div class="eyebrow" style="margin-bottom:6px">Rank by</div>
+      <div class="seg" id="rankBy" role="radiogroup" aria-label="Rank crops by">
+        <button data-by="typical" role="radio">Typical year</button><button data-by="safe" role="radio">Bad year (safest)</button>
+      </div></div>
+    <p class="small dim" id="riskStatus" style="margin:0;flex:1 1 220px"></p>
+  </div>
+  <div class="gap"></div>
   <div class="card">
     <div class="row rank-head" style="flex-wrap:wrap"><h3>Which crops pay best per square foot here</h3>
-      <span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil and season.</span></div>
+      <span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil, season and sun. Tap a crop for its growing guide.</span></div>
     <div class="table-wrap"><table id="rankTable"></table></div>
     <ol class="rank-list" id="rankList"></ol>
   </div>
@@ -132,6 +147,8 @@
     </div>
     <p class="small dim" id="calIntro" style="margin:0 0 10px"></p>
     <div id="calNow"></div>
+    <div class="cal-actions"><button class="btn" id="icsBtn">Add my plan to my phone's calendar</button>
+      <span class="small dim">Planting and harvest dates for your beds, with a reminder the day before. Works with Apple, Google and Outlook calendars.</span></div>
   </div>
   <div class="gap"></div>
   <div class="card cal" id="calendar"></div>
@@ -145,8 +162,19 @@
       <div id="planRows"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button class="btn ghost" id="addRow">+ Add bed</button>
+        <button class="btn ghost" id="autoBtn">Plan it for me</button>
+        <button class="btn ghost" id="shareBtn">Share plan</button>
         <span class="small dim" id="planArea" style="align-self:center"></span>
       </div>
+      <div class="auto-box" id="autoBox" hidden>
+        <p class="small" style="margin:0 0 8px">Fills your space with the crops that pay best here in a typical year <em>and</em> hold up in a bad one, no more than a quarter of the space each.</p>
+        <div class="form-grid">
+          <label>Space to plant (sq ft)<input type="number" min="4" step="1" inputmode="numeric" id="autoArea" value="32"></label>
+          <label>Sun there<select id="autoSun"><option value="8">Full sun (8h+)</option><option value="6">About 6 hours</option><option value="4">About 4 hours</option><option value="2">Shade (2h)</option></select></label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="autoGo">Replace my plan</button><button class="btn ghost" id="autoCancel">Cancel</button></div>
+      </div>
+      <ul class="notes companions" id="companionNotes"></ul>
       <div class="form-grid" style="margin-top:14px">
         <label>Water rate ($ / 1,000 gal)<input type="number" step="0.25" inputmode="decimal" id="waterRate" value="6"></label>
         <label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
@@ -159,6 +187,7 @@
     </div>
     <div class="grid" style="align-content:start">
       <div class="grid g2" id="roiKpis"></div>
+      <div class="card" id="riskCard"><h3>Good year, bad year</h3><div id="riskBody"><p class="small dim" style="margin:0">Replaying your plan through 15 past seasons of local weather…</p></div></div>
       <div class="card"><h3>Where the money goes</h3><div id="costStack"></div></div>
       <div class="card"><h3>By bed</h3><div class="table-wrap"><table id="roiTable"></table></div></div>
     </div>
@@ -175,6 +204,13 @@
     <div id="logProgress"></div>
     <div id="logEntries"></div>
     <div class="log-tools"><button class="btn ghost" id="logCsv">Download log (CSV)</button><button class="btn ghost" id="calReset">Reset calibration</button></div>
+  </div>
+  <div class="gap"></div>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap"><h3>Your data</h3>
+      <span class="small dim">No account and no tracking: your plan, soil test and harvests stay in this browser. Save a backup to move them to another phone.</span></div>
+    <div class="log-tools"><button class="btn ghost" id="backupBtn">Save a backup</button>
+      <label class="btn ghost file-btn">Restore a backup<input type="file" id="restoreInput" accept=".json,application/json" hidden></label></div>
   </div>
 </section>
 
@@ -215,9 +251,25 @@
   </div>
 </section>
 
+<!-- GUIDE -->
+<section class="tab" id="tab-guide">
+  <div class="card">
+    <h3>Something wrong in the garden?</h3>
+    <p class="small dim" style="margin:4px 0 10px">Pick what you're seeing. Cheapest fixes come first, and notes about your own soil are added where they matter.</p>
+    <div class="problems" id="problemList"></div>
+  </div>
+  <div class="gap"></div>
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap"><h3>Crop guide</h3>
+      <input type="search" id="guideSearch" placeholder="Search crops" aria-label="Search crops" class="guide-search"></div>
+    <div class="guide-grid" id="guideGrid"></div>
+  </div>
+</section>
+
 <footer>
   Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather and forecast, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
-  Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.
+  Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.<br>
+  Free and open source. <a href="https://github.com/AaronHal223/EcoAnalytics">Code, ideas and fixes welcome on GitHub</a>.
 </footer>
 </div>
 <dialog id="whySheet" aria-labelledby="whyTitle">
@@ -226,6 +278,35 @@
   <ol class="why-steps" id="whySteps"></ol>
   <p class="small why-caveat" id="whyCaveat" hidden></p>
   <p class="small dim" id="whySources"></p>
+</dialog>
+<dialog id="guideSheet" class="sheet" aria-labelledby="guideTitle">
+  <div class="why-head"><div><div class="eyebrow">Growing guide</div><h3 id="guideTitle"></h3><div class="small dim" id="guideSub"></div></div>
+    <button class="why-close" id="guideClose" aria-label="Close">&times;</button></div>
+  <div id="guideBody"></div>
+</dialog>
+<dialog id="sunSheet" class="sheet" aria-labelledby="sunTitle">
+  <div class="why-head"><div><div class="eyebrow">Sun at this bed</div><h3 id="sunTitle">How much sun does it get?</h3></div>
+    <button class="why-close" id="sunClose" aria-label="Close">&times;</button></div>
+  <div class="seg sun-mode" id="sunMode" role="tablist" aria-label="How to measure">
+    <button data-mode="scan" role="tab">Scan with camera</button><button data-mode="quick" role="tab">Quick estimate</button>
+  </div>
+  <div id="sunScan" class="sun-pane">
+    <p class="small">Stand where the bed is. Aim the cross at the <strong>top</strong> of trees, roofs and fences, sweeping slowly from <strong id="sunFrom">east</strong>, through <strong id="sunVia">south</strong>, to <strong id="sunTo">west</strong>. Where the sky is open, aim at the horizon. Nothing is recorded or uploaded; the camera is only a viewfinder.</p>
+    <div class="viewfinder" id="viewfinder">
+      <video id="sunVideo" playsinline muted autoplay></video>
+      <div class="cross" aria-hidden="true"></div>
+      <div class="vf-read num" id="sunRead">Tap Start</div>
+    </div>
+    <div class="cover" id="sunCover" aria-label="How much of the sky you've swept"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="scanStart">Start</button><button class="btn ghost" id="scanDone" disabled>Done</button></div>
+    <p class="small dim" id="scanMsg"></p>
+  </div>
+  <div id="sunQuick" class="sun-pane" hidden>
+    <p class="small">Standing at the bed, how high do trees, buildings or fences look in each direction?</p>
+    <div class="form-grid" id="quickGrid"></div>
+    <button class="btn" id="quickGo" style="margin-top:10px">Work it out</button>
+  </div>
+  <div id="sunResult"></div>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
