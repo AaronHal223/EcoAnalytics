@@ -29,7 +29,9 @@ import { DEFAULT_YARD, layout, placeBed, resizeToArea, yardNotes, plantCount, pl
 import { sampleColor, readStrip, parseValues, STRIP_TYPES, toSoilTest } from "./strip.js";
 import { setLang, lang, defaultLang, watch as watchLang, translateText } from "./i18n.js";
 import { money as fmtMoney, setCurrency, currency, defaultCurrency, fetchRate, toLocal, toUSD, CURRENCIES } from "./currency.js";
-import { setMetric, isMetric, defaultMetric, watch as watchUnits, area as areaU, weight as weightU, waterPrice, SQFT_PER_M2, KG_PER_LB, L_PER_GAL } from "./units.js";
+import { session, signIn, signOutHere, syncState, setSync, collect, hasUserData, mergeIn, mergeJournals, applyTo, plan as syncPlan, call as apiCall, errorText } from "./account.js";
+import { isoDay, visible, upsertDaily, addNote, editEntry, deleteEntry, toText, assistantContext } from "./journal.js";
+import { setMetric, isMetric, defaultMetric, convertText, watch as watchUnits, area as areaU, weight as weightU, waterPrice, SQFT_PER_M2, KG_PER_LB, L_PER_GAL } from "./units.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -40,9 +42,11 @@ const fmt = (v, d = 1) => v == null ? "—" : Number(v).toLocaleString(undefined
 const perSq = (v, d = 2) => money(v == null ? v : isMetric() ? v * 10.7639 : v, d);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+let ON_SET = null;   // set by the account code: saves changes to the account when signed in
+let FROZEN = false;  // true while the account's copy is being loaded: nothing on the page may overwrite it
 const store = {
   get(k, d) { try { const v = localStorage.getItem("eco:" + k); return v ? JSON.parse(v) : d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("eco:" + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  set(k, v) { if (FROZEN) return; try { localStorage.setItem("eco:" + k, JSON.stringify(v)); } catch { /* storage unavailable */ } ON_SET?.(k); },
 };
 
 // Water rate box: shown in the user's units and currency, kept in US$ per 1,000 gal for the models.
@@ -535,7 +539,7 @@ function renderAll(d) {
   renderSeason(d.climate); renderSoil(d.soil); renderRanking(d.ranking); renderRisk(); renderGuideTab(d);
   renderROI(d.roi, d.emptyPlan); renderWaterKpis(d.roi.water); renderFertText(d.roi.fertilizer, d.soil);
   renderCalendar(d); renderForecast(d); renderLog(d);
-  renderWeek(d); renderShift(); renderYard();
+  renderWeek(d); renderShift(); renderYard(); renderDaily(d);
   if (store.get("alerts", false)) writeAlertConfig(true);
   renderCharts(d);
   countUp($("section.tab.on") || document);
@@ -1189,10 +1193,11 @@ const WEEK_ICON = {
   harvest: `<path d="M5 11h14l-1.5 9h-11z"/><path d="M8 11l2-6m6 6-2-6"/>`,
   start: `<path d="M12 5v14M5 12h14"/>`, calm: `<path d="M5 13l4 4L19 7"/>`,
 };
+let WEEK_ACTS = [];
 function renderWeek(d) {
   let acts = [];
   try {
-    acts = weekActions({ days: FORECAST, plan: PLAN.filter(p => p.sqft > 0), cl: d.climate, calendar: d.calendar, advice: d.advice, soil: d.soil, today: localDoy() });
+    acts = WEEK_ACTS = weekActions({ days: FORECAST, plan: PLAN.filter(p => p.sqft > 0), cl: d.climate, calendar: d.calendar, advice: d.advice, soil: d.soil, today: localDoy() });
   } catch { acts = []; }
   $("#weekSub").textContent = FSTATE === "ok" ? "From the 7-day forecast, your calendar and your beds." : FSTATE === "loading" ? "Checking the forecast…"
     : FSTATE === "failed" ? "The forecast couldn't be loaded, so weather alerts are missing. Calendar dates still show." : "";
@@ -1631,6 +1636,317 @@ function bars(el, labels, series, opts = {}) {
   });
   svg.addEventListener("pointerleave", hide);
 }
+
+// ---- Account, sync, journal and garden assistant ------------------------------------------------------------
+// The account is optional: everything works without it. Signed in, every change
+// is saved to the account a few seconds later, and opening the app on another
+// phone brings the latest copy down.
+const AUTH = { s: session(localStorage), busy: false, gen: 0, assistant: null, pending: null };
+const QUIET = /^(tab|toured|tour_resume|fx:|forecast:|research:|history:)/;   // not worth a save on their own
+let pushT;
+ON_SET = k => {
+  if (!AUTH.s || QUIET.test(k)) return;
+  AUTH.gen++;
+  setSync(localStorage, { dirty: true });
+  clearTimeout(pushT);
+  pushT = setTimeout(pushNow, 4000);
+};
+const acctMsg = (text = "", ok = false) => { const m = $("#acctMsg"); m.textContent = text; m.style.color = ok ? "var(--good)" : ""; };
+const when = iso => { try { return new Date(iso).toLocaleString(lang() === "es" ? "es" : undefined, { dateStyle: "medium", timeStyle: "short" }); } catch { return iso; } };
+function acctStatus() {
+  const st = syncState(localStorage);
+  $("#acctStatus").innerHTML = st.dirty ? "<span>Changes waiting to be saved to your account…</span>"
+    : st.server ? `<span>Everything saved.</span> <span>Last saved:</span> <span translate="no">${esc(when(st.server))}</span>` : "";
+}
+function renderAccount() {
+  const s = AUTH.s;
+  $("#acctOut").hidden = !!s;
+  $("#acctIn").hidden = !s;
+  if (s) { $("#acctWho").textContent = s.email; acctStatus(); }
+}
+function lostSession(e) {
+  if (e?.code !== "signed_out") return false;
+  signOutHere(localStorage); AUTH.s = null; renderAccount();
+  acctMsg(errorText("signed_out"));
+  return true;
+}
+async function pushNow() {
+  if (!AUTH.s || FROZEN) return;
+  if (AUTH.busy) { clearTimeout(pushT); pushT = setTimeout(pushNow, 2000); return; }
+  AUTH.busy = true;
+  const gen = AUTH.gen;
+  try {
+    const r = await apiCall("/push", { data: collect(localStorage) }, { token: AUTH.s.token });
+    setSync(localStorage, { server: r.updated_at, ...(gen === AUTH.gen ? { dirty: false } : {}) });
+    if ($("#acctMsg").style.color !== "var(--good)") acctMsg();   // clear an old error, keep a welcome
+  } catch (e) {
+    if (!lostSession(e)) acctMsg(e.message);
+  } finally { AUTH.busy = false; if (AUTH.s) acctStatus(); }
+}
+const differs = (local, pairs) => Object.entries(pairs).some(([k, v]) => (v === null ? k in local : local[k] !== v));
+/** Writes the account's copy here and reloads so every part of the page uses it. */
+function takeAccountCopy(server, updated, { dirty = false, msg = "Loaded your garden from your account." } = {}) {
+  const local = collect(localStorage), pairs = mergeIn(local, server || {});
+  setSync(localStorage, { server: updated, dirty });   // if dirty, the merged copy is sent up when the page reopens
+  if (!differs(local, pairs)) { if (dirty) pushNow(); acctStatus(); return false; }
+  FROZEN = true; clearTimeout(pushT);
+  applyTo(localStorage, pairs);
+  sessionStorage.setItem("eco-note", msg);
+  location.reload();
+  return true;
+}
+/** When the app opens: bring down what other devices saved, send up what this one changed. */
+async function syncOnOpen() {
+  if (!AUTH.s) return;
+  try {
+    const r = await apiCall("/pull", {}, { token: AUTH.s.token });
+    const step = syncPlan(syncState(localStorage), r.updated_at);
+    if (step === "pull") takeAccountCopy(r.data, r.updated_at, { msg: "Loaded the latest from your account." });
+    else if (step === "merge") takeAccountCopy(r.data, r.updated_at, { dirty: true, msg: "Loaded the latest from your account and kept this phone's journal notes." });
+    else if (step === "push") pushNow();
+    else acctStatus();
+  } catch (e) { if (!lostSession(e) && e.code !== "offline") acctMsg(e.message); }
+}
+/** Right after signing in on this device: decide whose copy to keep. */
+async function afterSignIn() {
+  const r = await apiCall("/pull", {}, { token: AUTH.s.token });
+  const server = r.data || {}, local = collect(localStorage);
+  if (!hasUserData(server)) { setSync(localStorage, { server: r.updated_at, dirty: true }); return pushNow(); }
+  if (!hasUserData(local) || !differs(local, mergeIn(local, server))) return takeAccountCopy(server, r.updated_at);
+  AUTH.pending = r;
+  $("#acctChoice").hidden = false;
+}
+$("#acctChoice").addEventListener("click", e => {
+  const b = e.target.closest("button[data-choice]");
+  if (!b || !AUTH.pending) return;
+  const r = AUTH.pending; AUTH.pending = null;
+  $("#acctChoice").hidden = true;
+  if (b.dataset.choice === "account") return takeAccountCopy(r.data, r.updated_at, { dirty: true });
+  // Keep this phone's garden, but bring in journal entries written on the other device.
+  const parse = s => { try { return JSON.parse(s); } catch { return []; } };
+  const merged = mergeJournals(store.get("journal", []), parse(r.data?.["eco:journal"]));
+  setSync(localStorage, { server: r.updated_at });
+  store.set("journal", merged);
+  JOURNAL = merged; renderJournal();
+  pushNow();
+});
+function showCode(code) {
+  if (!code) return;
+  $("#acctCodeShown").textContent = code;
+  $("#acctCodeBox").hidden = false;
+  $("#acctCodeBox").scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" });
+}
+$("#acctCodeCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("#acctCodeShown").textContent); toast("Recovery code copied. Keep it somewhere safe."); }
+  catch { toast("Couldn't copy. Write the code down or take a screenshot.", { error: true }); }
+};
+$("#acctCodeDone").onclick = () => { $("#acctCodeBox").hidden = true; $("#acctCodeShown").textContent = ""; };
+
+async function authAction(btn, path, body) {
+  if (AUTH.busy) return;
+  acctMsg();
+  const buttons = $$("#acctCard button");
+  buttons.forEach(b => (b.disabled = true));
+  const label = btn.textContent;
+  btn.textContent = "One moment…";
+  AUTH.busy = true;
+  try {
+    const r = await apiCall(path, body);
+    signIn(localStorage, r); AUTH.s = session(localStorage);
+    setSync(localStorage, { server: null, dirty: false });
+    $("#acctPw").value = ""; $("#acctNewPw").value = ""; $("#acctCode").value = "";
+    $("#acctForgot").open = false;
+    AUTH.busy = false;
+    renderAccount();
+    showCode(r.recoveryCode);
+    acctMsg(path === "/signup" ? "Account made. Your garden is being saved to it." : path === "/recover" ? "Password changed and you're signed in." : "Signed in.", true);
+    await afterSignIn();
+  } catch (e) {
+    acctMsg(e.message);
+  } finally {
+    AUTH.busy = false;
+    btn.textContent = label;
+    buttons.forEach(b => (b.disabled = false));
+    if (AUTH.s) acctStatus();
+  }
+}
+const creds = () => ({ email: $("#acctEmail").value.trim(), password: $("#acctPw").value });
+$("#acctLogin").onclick = e => authAction(e.currentTarget, "/login", creds());
+$("#acctSignup").onclick = e => authAction(e.currentTarget, "/signup", creds());
+$("#acctPw").onkeydown = e => { if (e.key === "Enter") $("#acctLogin").click(); };
+$("#acctRecover").onclick = e => authAction(e.currentTarget, "/recover", { email: $("#acctEmail").value.trim(), recoveryCode: $("#acctCode").value, newPassword: $("#acctNewPw").value });
+$("#acctSync").onclick = async () => { acctMsg(); await syncOnOpen(); if (AUTH.s && syncState(localStorage).dirty) await pushNow(); if (AUTH.s) toast("Synced with your account."); };
+$("#acctLogout").onclick = async () => {
+  const s = AUTH.s;
+  if (!s) return;
+  if (syncState(localStorage).dirty) await pushNow();
+  apiCall("/logout", {}, { token: s.token }).catch(() => {});
+  signOutHere(localStorage); AUTH.s = null; renderAccount();
+  acctMsg("Signed out. Your garden stays on this phone.", true);
+};
+$("#acctDelete").onclick = async () => {
+  if (!AUTH.s) return;
+  if (!confirm(translateText("Delete your account and everything saved in it? This can't be undone. What's on this phone stays."))) return;
+  try {
+    await apiCall("/delete", { password: $("#acctDelPw").value }, { token: AUTH.s.token });
+    signOutHere(localStorage); AUTH.s = null; renderAccount();
+    $("#acctDelPw").value = "";
+    acctMsg("Account deleted. Your garden is still on this phone.", true);
+  } catch (e) { if (!lostSession(e)) acctMsg(e.message); }
+};
+addEventListener("online", () => { if (AUTH.s && syncState(localStorage).dirty) pushNow(); });
+document.addEventListener("visibilitychange", () => {
+  if (!AUTH.s) return;
+  if (document.visibilityState === "hidden" && syncState(localStorage).dirty) { clearTimeout(pushT); pushNow(); }
+  if (document.visibilityState === "visible") syncOnOpen();
+});
+
+// ---- Journal ---------------------------------------------------------------------------------------------------------
+let JOURNAL = (() => { const j = store.get("journal", []); return Array.isArray(j) ? j : []; })();
+let JOURNAL_SHOWN = 20, EDITING = null;
+const loc1 = s => translateText(isMetric() ? convertText(s) : s);
+/** One English journal line in the user's language and units ("To do: ..." and "Beds: ..." are translated in two halves). */
+const localize = s => { const m = /^(To do|Beds|Weather): (.+)$/.exec(s); return m && m[1] !== "Weather" ? `${translateText(m[1] + ":")} ${loc1(m[2])}` : loc1(s); };
+function saveJournal(j) { JOURNAL = j; store.set("journal", j); renderJournal(); }
+function renderDaily() {
+  if (FSTATE === "loading" || FSTATE === "idle" || EDITING) return;   // never redraw under someone typing
+  const next = upsertDaily(JOURNAL, { date: isoDay(), days: FORECAST, actions: WEEK_ACTS, log: LOG, plan: PLAN }, { localize });
+  if (next !== JOURNAL) saveJournal(next);
+}
+function dateLabel(iso) {
+  try { return new Date(iso + "T12:00:00").toLocaleDateString(lang() === "es" ? "es" : undefined, { weekday: "short", month: "short", day: "numeric", year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : "numeric" }); }
+  catch { return iso; }
+}
+const KIND = { auto: "Written by the app", note: "Your note", chat: "From the garden assistant" };
+function renderJournal() {
+  const list = visible(JOURNAL);
+  $("#journalList").innerHTML = list.length ? list.slice(0, JOURNAL_SHOWN).map(e => {
+    const edited = e.edited && e.kind === "auto";
+    if (EDITING === e.id) {
+      return `<article class="jentry ${esc(e.kind)} jedit" data-id="${esc(e.id)}">
+        <label class="small dim">Title<input data-jtitle value="${esc(e.title)}" maxlength="120"></label>
+        <label class="small dim">Entry<textarea data-jtext rows="${Math.min(10, e.lines.length + 2)}">${esc(e.lines.join("\n"))}</textarea></label>
+        <div class="jtools"><button data-jsave>Save</button><button class="del" data-jcancel>Cancel</button></div></article>`;
+    }
+    return `<article class="jentry ${esc(e.kind)}" data-id="${esc(e.id)}">
+      <div class="jhead"><strong translate="no" data-units="us">${esc(e.title)}</strong><span class="jdate">${esc(dateLabel(e.date))} · <span>${KIND[e.kind] || ""}</span>${edited ? " · <span>edited</span>" : ""}</span></div>
+      <ul translate="no" data-units="us">${e.lines.filter(l => l.trim()).map(l => `<li>${esc(l)}</li>`).join("")}</ul>
+      <div class="jtools"><button data-jedit aria-label="Edit this entry">Edit</button><button class="del" data-jdel aria-label="Delete this entry">Delete</button></div></article>`;
+  }).join("") : `<p class="journal-empty">Your first daily update appears here once your garden has loaded.</p>`;
+  $("#journalMore").hidden = list.length <= JOURNAL_SHOWN;
+  $("#journalTxt").disabled = !list.length;
+}
+$("#journalList").addEventListener("click", e => {
+  const art = e.target.closest("article[data-id]");
+  if (!art) return;
+  const id = art.dataset.id;
+  if (e.target.closest("[data-jedit]")) { EDITING = id; renderJournal(); $("[data-jtext]", $("#journalList"))?.focus(); }
+  else if (e.target.closest("[data-jcancel]")) { EDITING = null; renderJournal(); }
+  else if (e.target.closest("[data-jsave]")) {
+    EDITING = null;
+    saveJournal(editEntry(JOURNAL, id, { title: $("[data-jtitle]", art).value, text: $("[data-jtext]", art).value }));
+    toast("Journal entry saved.");
+  } else if (e.target.closest("[data-jdel]")) {
+    if (!confirm(translateText("Delete this journal entry?"))) return;
+    saveJournal(deleteEntry(JOURNAL, id));
+    toast("Entry deleted.");
+  }
+});
+function addJournalNote() {
+  const next = addNote(JOURNAL, { title: translateText("Note"), text: $("#noteText").value });
+  if (!next) return toast("Type a note first.", { error: true });
+  $("#noteText").value = "";
+  saveJournal(next);
+  toast("Note added to your journal.");
+}
+$("#noteAdd").onclick = addJournalNote;
+$("#journalMore").onclick = () => { JOURNAL_SHOWN += 20; renderJournal(); };
+$("#journalTxt").onclick = () => download(`garden-journal-${isoDay()}.txt`, toText(JOURNAL), "text/plain");
+
+// ---- Garden assistant -------------------------------------------------------------------------------------------------
+const CHAT = (() => { try { const c = JSON.parse(sessionStorage.getItem("eco-chat") || "[]"); return Array.isArray(c) ? c.slice(-16) : []; } catch { return []; } })();
+let CHAT_BUSY = false, CHAT_SAVED = false;
+const saveChat = () => { try { sessionStorage.setItem("eco-chat", JSON.stringify(CHAT)); } catch { /* private mode */ } };
+$("#aiConsent").checked = store.get("aiconsent", false) === true;
+$("#aiConsent").onchange = () => store.set("aiconsent", $("#aiConsent").checked);
+function renderChat(waiting = false) {
+  $("#chatLog").innerHTML = CHAT.map(m => `<div class="bubble ${m.role}" translate="no" data-units="us">${esc(m.text)}</div>`).join("")
+    + (waiting ? `<div class="bubble assistant wait">Thinking…</div>` : "");
+  const log = $("#chatLog"); log.scrollTop = log.scrollHeight;
+  $("#chatSave").disabled = CHAT_BUSY || !CHAT.some(m => m.role === "assistant") || CHAT_SAVED;
+  $("#chatClear").disabled = CHAT_BUSY || !CHAT.length;
+  $("#chatSend").disabled = CHAT_BUSY || AUTH.assistant === false;
+}
+function chatContext() {
+  const d = LAST;
+  return assistantContext({
+    place: (LOCATION?.label || "").split(",").map(x => x.trim()).filter(x => x && !/\d/.test(x)).slice(-3).join(", "), lat: LOCATION?.lat,   // town and region, never the street
+    climate: d?.climate, soil: d?.soil, plan: PLAN, actions: WEEK_ACTS, log: LOG, journal: JOURNAL,
+    units: isMetric() ? "metric" : "us", language: lang(),
+  });
+}
+function chatReady() {
+  if (!AUTH.s) { $("#chatMsg").textContent = "Sign in or create a free account above to use the assistant."; $("#acctEmail")?.focus(); return false; }
+  if (!$("#aiConsent").checked) { $("#chatMsg").textContent = errorText("consent"); $("#aiConsent").focus(); return false; }
+  return true;
+}
+async function sendChat() {
+  const text = $("#chatInput").value.trim();
+  if (!text || CHAT_BUSY) return;
+  if (!chatReady()) return;
+  CHAT.push({ role: "user", text: text.slice(0, 2000) });
+  $("#chatInput").value = "";
+  CHAT_BUSY = true; CHAT_SAVED = false; $("#chatMsg").textContent = "";
+  renderChat(true);
+  try {
+    const r = await apiCall("/chat", { messages: CHAT.slice(-16), context: chatContext(), consent: true }, { token: AUTH.s.token });
+    CHAT.push({ role: "assistant", text: String(r.reply || "") });
+    while (CHAT.length > 16) CHAT.shift();
+    saveChat();
+    if (Number.isFinite(r.left) && r.left <= 5) $("#chatMsg").textContent = `${r.left} questions left today.`;
+  } catch (e) {
+    CHAT.pop();
+    $("#chatInput").value = text;
+    if (e.code === "assistant_off") AUTH.assistant = false;
+    if (!lostSession(e)) $("#chatMsg").textContent = e.message;
+  } finally { CHAT_BUSY = false; renderChat(); }
+}
+$("#chatSend").onclick = sendChat;
+$("#chatInput").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); } };
+$("#chatClear").onclick = () => { CHAT.length = 0; CHAT_SAVED = false; saveChat(); $("#chatMsg").textContent = ""; renderChat(); };
+$("#chatSave").onclick = async () => {
+  if (CHAT_BUSY || !chatReady()) return;
+  CHAT_BUSY = true; renderChat();
+  $("#chatMsg").textContent = "Summarizing…";
+  try {
+    const r = await apiCall("/summarize", { messages: CHAT.slice(-16), context: chatContext(), consent: true }, { token: AUTH.s.token });
+    const next = addNote(JOURNAL, { kind: "chat", title: r.title || "Garden assistant", text: (r.points || []).join("\n") });
+    if (next) { saveJournal(next); CHAT_SAVED = true; }
+    $("#chatMsg").textContent = "Saved to your journal below.";
+  } catch (e) { if (!lostSession(e)) $("#chatMsg").textContent = e.message; }
+  finally { CHAT_BUSY = false; renderChat(); }
+};
+/** Asks the server once whether the assistant is switched on. */
+async function checkAssistant() {
+  if (AUTH.assistant !== null) return;
+  try {
+    const r = await apiCall("/health");
+    AUTH.assistant = !!r.assistant;
+    if (!r.assistant) $("#chatMsg").textContent = "The assistant is being switched on. Your account, sync and journal already work.";
+  } catch { /* offline: say so when they ask */ }
+  renderChat();
+}
+$('nav.tabs button[data-tab="journal"]').addEventListener("click", checkAssistant);
+
+renderAccount();
+renderJournal();
+renderChat();
+{
+  const note = sessionStorage.getItem("eco-note");
+  if (note) { sessionStorage.removeItem("eco-note"); setTimeout(() => toast(note), 400); }
+}
+if (store.get("tab", "soil") === "journal") checkAssistant();
+syncOnOpen();
 
 // ---- Boot ---------------------------------------------------------------------------------------------------
 (async function boot() {

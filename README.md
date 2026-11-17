@@ -30,6 +30,7 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 | **Garden ROI** | Bed-by-bed plan with size sliders: harvest value at store prices, yearly cost, net savings, return %, cost per pound, payback time. Also **your time**: hours of work and what the garden pays per hour (optionally counted as a cost). Includes the optional **harvest log**. |
 | **Water cost** | A **7-day watering plan** from the live forecast (water or skip each day, with gallons and dollars, plus a freeze warning for tender crops), then month-by-month irrigation beyond rainfall in gallons and dollars. Try hose vs. drip vs. sprinkler and drag your water rate to see the effect instantly. Tap or hover any bar for its value. |
 | **Fertilizer plan** | The cheapest **whole-bag** shopping list that covers your plan's N-P-K needs (solved as a mixed-integer program), plus lime or sulfur for pH and compost for organic matter. Organic-only mode included. |
+| **Journal** | A free **account** that saves your garden and follows you to any phone or computer, a **garden journal** the app writes for you every day (weather, this week's jobs, what you picked, what changed in your beds) that you can edit or add notes to, and a **garden assistant** (Google Gemini) that already knows your soil, beds and frost dates. Save any chat to the journal as a short summary. |
 | **Guide** | A **problem solver** (yellow leaves, blossom-end rot, holes, mildew, bolting, no fruit…) with the cheapest fixes first and notes about *your* soil where they matter, plus a **growing guide** for every crop: spacing, watering, when it's ready, storage, good and bad neighbours, and the pests you'll actually meet. |
 
 ### What makes it different
@@ -44,7 +45,10 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 - **Companion check.** Flags pairs traditionally kept apart (tomatoes and potatoes share blight) and points out good neighbours. Shown as tips only; the evidence is mixed, so they never change your numbers (`js/guide.js`).
 - **Reminders in your own calendar.** One tap saves your plan's planting and harvest dates as a calendar file with an alert the day before. Works with Apple, Google and Outlook; no notifications service needed.
 - **Share a plan as a link.** The plan travels after the `#` in the link, which is never sent to any server. Whoever opens it sees it worked out for *their* soil and weather (`js/share.js`).
-- **Your data stays yours.** No account, no tracking, no ads. Save a backup file and restore it on another phone.
+- **Your data stays yours.** No tracking, no ads. The account is optional: without it everything stays on the phone, and you can still save a backup file and restore it on another phone.
+- **Account and sync, free.** Sign up with an email and password (nothing to confirm, nothing to pay). Every change is saved to your account a few seconds later; opening the app on another device brings the latest copy down, and journal notes written on two devices are both kept. A recovery code shown once at sign-up resets a forgotten password, so no email service is needed (`js/account.js`, `server/api`).
+- **A journal that writes itself.** Once a day the app records the weather, the top jobs this week, harvests since the last entry and changes to your beds. Until you edit it, today's entry keeps itself up to date; once you edit it, it's yours (`js/journal.js`).
+- **Garden assistant.** Ask about your own garden in plain words; it's given your town (never the street), soil, beds, frost dates, this week's jobs and recent journal lines. Opt-in, 20 questions a day each. It runs on Google's free Gemini tier, which Google may use to improve its products, so the page asks people to agree first and not type anything private.
 - **This week in your garden.** The 7-day forecast, your planting calendar and the watering plan become a short to-do list for the beds you actually have: cover the peppers before Thursday's frost, water early before the heat, skip watering because heavy rain is coming, check stakes before the wind, last week to plant lettuce. Most urgent first (`js/weekly.js`).
 - **Yard map.** Drag beds to where they really are and resize them; each one shows a square-foot grid with how many plants fit. Because the app knows where beds sit, it warns when traditionally bad neighbours actually touch and when a tall crop (tomatoes, corn, trellised peas) will shade a shorter bed just north of it (`js/yard.js`).
 - **Test-strip reader.** Photograph a cheap pH strip or capsule kit *next to its colour chart*, tap the test and the chart colours, and the phone reads it, comparing colours in CIELAB under the same light. The reading goes straight into your soil test and every number updates. The photo never leaves the phone (`js/strip.js`).
@@ -112,6 +116,12 @@ The site goes live at **https://aaronhal223.github.io/EcoAnalytics/**. After tha
 
 [`render.yaml`](render.yaml) also lets you host on Render instead (**New**, then **Blueprint**, pick this repo, **Deploy Blueprint**). Render's static hosting is free, but Render may ask for a card at sign-up and bills for traffic over 5 GB a month. Render also adds same-address routes (`/proxy/sda`, `/proxy/soilgrids/*`) that the site uses only if a browser blocks a direct call to the soil services.
 
+### The account server (free)
+
+Accounts, sync and the assistant run on a small [Neon](https://neon.tech) function (`server/api`, free plan: Postgres plus Functions) at `https://br-silent-scene-bdsrlorq-api.compute.c-8.us-east-2.aws.neon.tech`. It has no npm dependencies: passwords are hashed with scrypt, sign-in uses random tokens (no cookies, so Safari works), and logins and sign-ups are rate-limited. Only `aaronhal223.github.io` and `localhost` may call it.
+
+To switch the assistant on, create a free Gemini API key at [Google AI Studio](https://aistudio.google.com/apikey) (no card) and set it as the function's `GEMINI_API_KEY` environment variable in Neon. Never put the key in this repo. Without a key, accounts, sync and the journal still work and the assistant says it isn't switched on yet.
+
 ## Run it locally
 
 ```bash
@@ -126,7 +136,7 @@ Add `?offline=1` to the URL to run on built-in estimates with no network calls.
 npm test
 ```
 
-126 tests (Node's built-in runner, no dependencies) cover southern-hemisphere seasons, phone alerts, currency, Spanish, the season report, the sun compass check, the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
+Over 140 tests (Node's built-in runner, no dependencies) cover the account server (sign-up, sign-in, recovery, sync, throttling, the assistant), sync merging and the daily journal, southern-hemisphere seasons, phone alerts, currency, Spanish, the season report, the sun compass check, the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
 
 ## Make it yours
 
@@ -153,6 +163,8 @@ public/                  <- everything that gets published
     risk.js              15 past seasons: crop ranges, plan odds, "Plan it for me"
     guide.js             crop guide, companion check, problem solver
     share.js             plan links, calendar (.ics) file, backup and restore
+    account.js           free account: sign-in, sync to the server, merging two devices
+    journal.js           daily journal entries, notes, what the garden assistant is told
     weekly.js            this week's to-do list from forecast, calendar and watering plan
     trend.js             season trends across 15 past years
     yard.js              yard map layout, plant counts, neighbour and shade checks
@@ -163,6 +175,7 @@ public/                  <- everything that gets published
     data.js              editable crop and fertilizer tables
     net.js               shared fetch helper, offline switch
   vendor/lp-solver.js    javascript-lp-solver (public domain), used by the fertilizer optimizer
+server/api/              account + assistant server (a Neon function): app.mjs routes, index.mjs database
 tests/                   node --test suite
 render.yaml              Render hosting blueprint
 ```

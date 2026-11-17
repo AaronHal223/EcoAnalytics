@@ -77,3 +77,14 @@ test("the service worker precaches every module the page loads", () => {
     assert.ok(sw.includes(`"${rel}"`), `sw.js SHELL is missing ${rel}`);
   }
 });
+
+test("every named import is exported by the module it comes from", async () => {
+  for (const f of walk(path.join(PUB, "js"))) {
+    for (const m of fs.readFileSync(f, "utf8").matchAll(/import\s*\{([^}]+)\}\s*from\s*"(\.[^"]+)"/g)) {
+      const mod = await import(path.resolve(path.dirname(f), m[2]));
+      for (const name of m[1].split(",").map(s => s.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
+        assert.ok(name in mod, `${path.basename(f)} imports ${name} from ${m[2]}, which doesn't export it`);
+      }
+    }
+  }
+});
