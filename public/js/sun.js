@@ -27,6 +27,7 @@ const r = (x, d = 1) => Math.round(x * 10 ** d) / 10 ** d;
 export const SUN_NEED = {
   tomato: 8, cherry_tomato: 7, pepper: 8, zucchini: 7, cucumber: 7, sweet_corn: 8, bush_bean: 6, snap_pea: 6, basil: 6,
   carrot: 6, beet: 5, radish: 5, onion: 7, garlic: 6, potato: 6,
+  eggplant: 8, winter_squash: 8, pole_bean: 6, sweet_potato: 8, cantaloupe: 8, broccoli: 6, cabbage: 6, arugula: 4, cilantro: 4, parsley: 4,
   lettuce: 4, spinach: 4, kale: 4, chard: 4,
 };
 
@@ -181,4 +182,24 @@ export function whatGrows(hours) {
   if (hours >= 6) return "Beans, peas, roots, herbs and greens do well; tomatoes and peppers give a bit less.";
   if (hours >= 4) return "Best for leafy greens (lettuce, spinach, kale, chard). Fruiting crops will struggle.";
   return "Too shady for most vegetables. Leafy greens may give a small harvest.";
+}
+
+/**
+ * Where the sun is right now (degrees), from latitude, longitude and the clock.
+ * Uses the equation of time, so it's within about a degree: good enough to
+ * check a phone's compass by pointing it at the sun.
+ */
+export function sunNow(lat, lon, date = new Date()) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
+  const doy = Math.floor((date.getTime() - start) / 864e5) + 1;
+  const B = 2 * Math.PI * (doy - 81) / 364;
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);   // minutes
+  const utcH = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const solar = ((utcH + lon / 15 + eot / 60) % 24 + 24) % 24;
+  return solarPosition(lat, doy, solar);
+}
+
+/** Compass correction (degrees to add to readings) from where the phone points when aimed at the sun. */
+export function compassOffset(measuredHeading, sunAzimuth) {
+  return r(((sunAzimuth - measuredHeading + 540) % 360) - 180);
 }

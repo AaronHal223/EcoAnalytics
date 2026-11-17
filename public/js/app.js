@@ -9,13 +9,15 @@
 
 import { locateByIP, locateByZip, locateByAddress, locateByDevice } from "./geo.js";
 import { researchSoilBase, applySoilTest } from "./soil.js";
-import { getClimate, MONTHS } from "./climate.js";
+import { getClimate, MONTHS, wrapDoy } from "./climate.js";
 import { CROPS } from "./data.js";
 import { rankCrops, gardenROI } from "./economics.js";
 import { plantingCalendar, localDoy, describeWindows, dayLabel } from "./planner.js";
 import { getForecast, wateringAdvice } from "./forecast.js";
 import { predictedLb, sqftOf, makeEntry, loggedLb, finishSeason, factorsFromHistory, toCSV } from "./calibration.js";
 import { explain } from "./provenance.js";
+import { sunNow, compassOffset } from "./sun.js";
+import { seasonReport } from "./calibration.js";
 import { sunHours, skylineFromEstimate, skylineFromSamples, cameraDirection, coverage, compassName, sunLabel, whatGrows,
   HEIGHTS, DIRECTIONS, BINS, BIN_DEG, SUN_NEED, sunFactor, FULL_SUN } from "./sun.js";
 import { getHistory, cropRisk, planRisk, autoPlan } from "./risk.js";
@@ -25,12 +27,14 @@ import { weekActions } from "./weekly.js";
 import { climateShift } from "./trend.js";
 import { DEFAULT_YARD, layout, placeBed, resizeToArea, yardNotes, plantCount, plantDots, spacingText, PER_SQFT } from "./yard.js";
 import { sampleColor, readStrip, parseValues, STRIP_TYPES, toSoilTest } from "./strip.js";
+import { setLang, lang, defaultLang, watch as watchLang, translateText } from "./i18n.js";
+import { money as fmtMoney, setCurrency, currency, defaultCurrency, fetchRate, toLocal, toUSD, CURRENCIES } from "./currency.js";
 import { setMetric, isMetric, defaultMetric, watch as watchUnits, area as areaU, weight as weightU, waterPrice, SQFT_PER_M2, KG_PER_LB, L_PER_GAL } from "./units.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const money = (v, d = 2) => v == null ? "—" : (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+const money = (v, d = 2) => fmtMoney(v, d);
 const fmt = (v, d = 1) => v == null ? "—" : Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 });
 // Money per square foot shown on its own (no unit next to it): per m² in metric.
 const perSq = (v, d = 2) => money(v == null ? v : isMetric() ? v * 10.7639 : v, d);
@@ -41,12 +45,43 @@ const store = {
   set(k, v) { try { localStorage.setItem("eco:" + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
 };
 
+// Water rate box: shown in the user's units and currency, kept in US$ per 1,000 gal for the models.
+const wrToShown = usd => Math.round(toLocal(waterPrice.toShown(usd)) * 100) / 100;
+const wrFromShown = v => waterPrice.fromShown(toUSD(v));
+/** When today's exchange rate arrives, re-show the water rate (stored in dollars) at that rate. */
+function syncInputsToCurrency(oldRate) {
+  const usd = waterPrice.fromShown((+$("#waterRate").value || 0) / oldRate);
+  $("#waterRate").value = wrToShown(usd);
+  syncWhatIf?.();
+}
+
+// Currency: the user's choice, else their region's; today's rate is cached for a day.
+{
+  const cur = store.get("currency", null) || defaultCurrency();
+  const fx = store.get("fx:" + cur, null);
+  setCurrency(cur, fx && Date.now() - fx.t < 864e5 * 7 ? fx.rate : null);
+  if (cur !== "USD" && !(fx && Date.now() - fx.t < 864e5)) {
+    fetchRate(cur).then(rate => {
+      if (!rate) return;
+      store.set("fx:" + cur, { rate, t: Date.now() });
+      const before = currency().rate;
+      setCurrency(cur, rate);
+      if (Math.abs(before - rate) / rate > 0.002) { syncInputsToCurrency(before); renderPrices(); if (LAST) recompute(); }
+    }).catch(() => {});
+  }
+}
+
+// Language: the user's choice, else their phone's.
+setLang(store.get("lang", null) || defaultLang());
+document.documentElement.lang = lang();
+
 // Units: the user's choice, else what their phone's region uses. Must be set before anything draws.
 {
   const u = store.get("units", null);
   setMetric(u === "metric" ? true : u === "us" ? false : defaultMetric());
   document.documentElement.dataset.unitsys = isMetric() ? "metric" : "us";
   watchUnits(document.body);
+  watchLang(document.body);
 }
 
 const DEFAULT_PLAN = [{ crop: "tomato", sqft: 16 }, { crop: "lettuce", sqft: 8 }, { crop: "basil", sqft: 4 }, { crop: "pepper", sqft: 4 }];
@@ -166,7 +201,8 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 
 // ---- Tabs ------------------------------------------------------------------------------------
 function showTab(name) {
-  $$("nav.tabs button").forEach(x => x.classList.toggle("on", x.dataset.tab === name));
+  if (document.documentElement.dataset.view === "simple" && $(`nav.tabs button[data-tab="${name}"]`)?.classList.contains("adv")) name = "soil";
+  $$("nav.tabs button").forEach(x => { const on = x.dataset.tab === name; x.classList.toggle("on", on); if (on) x.setAttribute("aria-current", "page"); else x.removeAttribute("aria-current"); });
   $$("section.tab").forEach(s => s.classList.toggle("on", s.id === "tab-" + name));
   if (isApp()) scrollTo({ top: 0, behavior: "smooth" });
   if (LAST) requestAnimationFrame(() => { renderCharts(LAST); countUp($("#tab-" + name)); });  // charts size to their now-visible card
@@ -327,13 +363,14 @@ async function loadForecast() {
 
 function settings() {
   return {
-    waterRate: Math.max(0, waterPrice.fromShown(+$("#waterRate").value || 0)),
+    waterRate: Math.max(0, wrFromShown(+$("#waterRate").value || 0)),
     method: $("#irrigation").value,
-    setupCost: Math.max(0, +$("#setupCost").value || 0),
+    setupCost: Math.max(0, toUSD(+$("#setupCost").value || 0)),
     setupYears: Math.max(1, Math.round(+$("#setupYears").value || 1)),
     organicOnly: $("#organicOnly").checked,
     laborHrPer100Week: Math.max(0, parseFloat($("#laborHrs").value) || 0),
-    hourlyWage: Math.max(0, parseFloat($("#hourlyWage").value) || 0),
+    hourlyWage: Math.max(0, toUSD(parseFloat($("#hourlyWage").value) || 0)),
+    prices: { ...PRICES },
   };
 }
 
@@ -369,20 +406,20 @@ function rankSun() {
 let rt;
 const recomputeSoon = () => { markLive(); clearTimeout(rt); rt = setTimeout(recompute, 60); };
 function saveSettings() {
-  store.set("settings", { water: String(waterPrice.fromShown(+$("#waterRate").value || 0)), irr: $("#irrigation").value, setup: $("#setupCost").value, years: $("#setupYears").value, org: $("#organicOnly").checked, labor: $("#laborHrs").value, wage: $("#hourlyWage").value });
+  store.set("settings", { water: String(wrFromShown(+$("#waterRate").value || 0)), irr: $("#irrigation").value, setup: $("#setupCost").value, years: $("#setupYears").value, org: $("#organicOnly").checked, labor: $("#laborHrs").value, wage: $("#hourlyWage").value });
 }
 ["#waterRate", "#irrigation", "#setupCost", "#setupYears", "#organicOnly", "#laborHrs", "#hourlyWage"].forEach(id =>
   $(id).addEventListener("input", () => { saveSettings(); syncWhatIf(); recomputeSoon(); }));
 
 // Water tab what-if controls mirror the plan settings (one source of truth).
 function syncWhatIf() {
-  const rate = waterPrice.fromShown(+$("#waterRate").value || 0), s = $("#rateSlider");
+  const rate = wrFromShown(+$("#waterRate").value || 0), s = $("#rateSlider");
   s.value = Math.min(+s.max, Math.max(+s.min, rate)); setFill(s);
   $("#rateOut").textContent = isMetric() ? `${money(waterPrice.toShown(rate))} per m³` : `${money(rate)} / 1,000 gal`;
   $$("#methodSeg button").forEach(b => { const on = b.dataset.m === $("#irrigation").value; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
 }
 $("#rateSlider").addEventListener("input", e => {
-  $("#waterRate").value = waterPrice.toShown(+e.target.value); saveSettings(); syncWhatIf(); recomputeSoon();
+  $("#waterRate").value = wrToShown(+e.target.value); saveSettings(); syncWhatIf(); recomputeSoon();
 });
 $$("#methodSeg button").forEach(b => (b.onclick = () => {
   $("#irrigation").value = b.dataset.m; saveSettings(); syncWhatIf(); markLive(); recompute();
@@ -499,6 +536,7 @@ function renderAll(d) {
   renderROI(d.roi, d.emptyPlan); renderWaterKpis(d.roi.water); renderFertText(d.roi.fertilizer, d.soil);
   renderCalendar(d); renderForecast(d); renderLog(d);
   renderWeek(d); renderShift(); renderYard();
+  if (store.get("alerts", false)) writeAlertConfig(true);
   renderCharts(d);
   countUp($("section.tab.on") || document);
 }
@@ -557,7 +595,7 @@ function renderSoil(s) {
   $("#soilCards").innerHTML = ["ph", "organic_matter_pct", "cec", "p_ppm", "k_ppm"].map(k => soilCard(s.values[k])).join("");
   const tex = [["Sand", s.values.sand_pct.value, css("--wheat")], ["Silt", s.values.silt_pct.value, css("--clay")], ["Clay", s.values.clay_pct.value, css("--ink-dim")]];
   const t = tex.reduce((a, x) => a + x[1], 0) || 1;
-  $("#textureCard").innerHTML = `<h3>Texture: ${esc(s.texture_class)}</h3>
+  $("#textureCard").innerHTML = `<h2>Texture: ${esc(s.texture_class)}</h2>
     <div class="texture">${tex.map(x => `<div style="width:${x[1] / t * 100}%;background:${x[2]}" title="${x[0]} ${Math.round(x[1])}%"></div>`).join("")}</div>
     <div class="legend">${tex.map(x => `<span><i style="background:${x[2]}"></i>${x[0]} <span class="num">${Math.round(x[1])}%</span></span>`).join("")}</div>
     <p class="small dim">Organic matter releases about <span class="num">${fmt(s.n_mineralized_lb_per_100sqft * 16, 2)}</span> oz of free nitrogen per 100 sq ft each season, already credited in your fertilizer plan.</p>
@@ -583,8 +621,8 @@ function renderRanking(input) {
   const pl = r => `${r.plantings}${r.season_fraction < 1 ? ` (${Math.round(r.season_fraction * 100)}%)` : ""}`;
 
   // Website: full table
-  $("#rankTable").innerHTML = `<thead><tr><th>#</th><th>Crop</th><th class="r">Net $/sq ft</th><th class="barcell"></th>
-    <th class="r">Bad → good year</th><th class="r">Harvest value ${isMetric() ? "$/m²" : "$/sq ft"}</th><th class="r">lb/sq ft</th><th class="r">Plantings</th><th class="r">Water gal/sq ft</th><th>Fit</th><th></th></tr></thead><tbody>` +
+  $("#rankTable").innerHTML = `<thead><tr><th>#</th><th>Crop</th><th class="r">Net $/sq ft</th><th class="barcell"><span class="sr-only">Net compared</span></th>
+    <th class="r">Bad → good year</th><th class="r">Harvest value ${isMetric() ? "$/m²" : "$/sq ft"}</th><th class="r">lb/sq ft</th><th class="r">Plantings</th><th class="r">Water gal/sq ft</th><th>Fit</th><th><span class="sr-only">Add to plan</span></th></tr></thead><tbody>` +
     rows.map((r, i) => `<tr>
       <td class="dim num">${i < 3 ? `<span class="medal">${i + 1}</span>` : i + 1}</td>
       <td><strong>${nameBtn(r)}</strong> <span class="season-tag ${r.season}">${r.season}</span>${calChip(r)}${whyBtn("crop:" + r.id, "why-inline")}</td>
@@ -611,7 +649,7 @@ function syncRankControls() {
   const sun = LAST?.settings.sunHours;
   $$("#sunSeg button").forEach(b => { const on = RANK_SUN != null ? +b.dataset.sun === RANK_SUN : sun == null ? b.dataset.sun === "8" : Math.abs(+b.dataset.sun - sun) < 1; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
   $$("#rankBy button").forEach(b => { const on = b.dataset.by === RANK_BY; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); b.disabled = b.dataset.by === "safe" && !LAST?.risk; });
-  $("#riskStatus").textContent = HSTATE === "ok" && HIST ? `Ranges replay each crop through ${HIST.climates.length} past seasons here (${HIST.climates[0].year}-${HIST.climates[HIST.climates.length - 1].year}). "Bad year" is a 1-in-10 season.`
+  $("#riskStatus").textContent = HSTATE === "ok" && HIST ? `Ranges replay each crop through ${HIST.climates.length} past seasons here (${HIST.climates[0].year}-${HIST.climates[HIST.climates.length - 1].year}). "Bad year" means 1 season in 10.`
     : HSTATE === "loading" ? "Loading 15 years of local weather for good-year / bad-year ranges…"
     : HSTATE === "failed" ? "Past-season weather couldn't be loaded, so ranges are unavailable right now. Everything else is unaffected." : "";
 }
@@ -725,8 +763,8 @@ function renderCalendar(d) {
   const rows = CAL_SCOPE === "plan" ? c.crops.filter(x => x.inPlan) : c.crops;
   const pct = n => n / 365 * 100;
   const lines = [
-    c.frost.spring > 0 && c.frost.spring <= 365 ? `<i class="cal-line frost" style="left:${pct(c.frost.spring)}%" title="Last spring frost"></i>` : "",
-    c.frost.fall > 0 && c.frost.fall <= 365 ? `<i class="cal-line frost" style="left:${pct(c.frost.fall)}%" title="First fall frost"></i>` : "",
+    c.frost.spring > 0 && !c.frost.frostFree ? `<i class="cal-line frost" style="left:${pct(wrapDoy(c.frost.spring))}%" title="Last spring frost"></i>` : "",
+    c.frost.fall > 0 && c.frost.fall < 730 && (c.frost.fall <= 365 || c.frost.fall > 366) ? `<i class="cal-line frost" style="left:${pct(wrapDoy(c.frost.fall))}%" title="First fall frost"></i>` : "",
     `<i class="cal-line today" style="left:${pct(c.today - 1)}%" title="Today"></i>`].join("");
   const bar = w => {
     const left = pct(w.start - 1), width = Math.min(100 - left, Math.max(1.4, pct(w.end - w.start + 1)));
@@ -751,7 +789,7 @@ function renderForecast(d) {
   if (!a) {
     el.innerHTML = FSTATE === "loading" || FSTATE === "idle"
       ? `<div class="skeleton" style="height:90px"></div>`
-      : `<h3>Next 7 days</h3><p class="dim small" style="margin:0">The forecast couldn't be loaded right now, so day-by-day watering advice is unavailable. The monthly estimates below still apply.</p>`;
+      : `<h2>Next 7 days</h2><p class="dim small" style="margin:0">The forecast couldn't be loaded right now, so day-by-day watering advice is unavailable. The monthly estimates below still apply.</p>`;
     return;
   }
   const frost = a.frost ? `<div class="banner ${a.frost.level}" role="alert">${esc(a.frost.text)}</div>` : "";
@@ -764,14 +802,14 @@ function renderForecast(d) {
     return `<div class="fc-day ${day.action || ""}${cold}" title="${esc(day.reason || "")}"><div class="d">${day.label}</div><div class="t">${day.short}</div>${wx}${act}</div>`;
   };
   if (!a.active) {
-    el.innerHTML = `<h3>Next 7 days</h3>${frost}<p class="dim small" style="margin:0 0 4px">${esc(a.reason)}</p><div class="fc-days">${a.days.map(cell).join("")}</div>`;
+    el.innerHTML = `<h2>Next 7 days</h2>${frost}<p class="dim small" style="margin:0 0 4px">${esc(a.reason)}</p><div class="fc-days" tabindex="0" role="region" aria-label="7-day forecast">${a.days.map(cell).join("")}</div>`;
     return;
   }
   const save = a.saved_gallons > 0
     ? `Skipping what rain covers saves <strong class="num">${money(a.saved_cost)}</strong> <span class="small dim">(${fmt(a.saved_gallons, 0)} gal vs. a daily timer)</span>`
     : "Little rain is coming, so plan to water as shown";
-  el.innerHTML = `<div class="fc-head"><h3>Water plan: next 7 days</h3><span class="fc-save">${save} ${whyBtn("water:week")}</span></div>${frost}
-    <div class="fc-days">${a.days.map(cell).join("")}</div>
+  el.innerHTML = `<div class="fc-head"><h2>Water plan: next 7 days</h2><span class="fc-save">${save} ${whyBtn("water:week")}</span></div>${frost}
+    <div class="fc-days" tabindex="0" role="region" aria-label="7-day forecast">${a.days.map(cell).join("")}</div>
     <p class="small dim" style="margin:10px 0 0">${a.water_days} watering day${a.water_days === 1 ? "" : "s"}, about ${fmt(a.week_gallons, 0)} gal (${money(a.week_cost)}) for ${fmt(a.area_sqft, 0)} sq ft. It's a forecast, so push a finger two inches into the soil before you skip.</p>`;
 }
 
@@ -830,6 +868,13 @@ $("#logEntries").addEventListener("click", e => {
   if (!b) return;
   LOG = LOG.filter(x => x.id !== b.dataset.delLog); saveLog(); recompute();
 });
+$("#seasonCsv").onclick = () => {
+  if (!LAST || !PLAN.some(p => p.sqft > 0)) return toast("Add beds and log some harvests first.");
+  const year = new Date().getFullYear();
+  const csv = seasonReport({ plan: PLAN, log: LOG, soil: LAST.soil, cl: LAST.climate, location: LOCATION, year, factors: factorsFromHistory(CALIB) });
+  download(`ecoanalytics-season-${year}.csv`, csv, "text/csv");
+  toast("Season report saved: predicted vs. actual for each crop, with your location rounded to about 50 km. Send it to help tune the yields.");
+};
 $("#logCsv").onclick = () => {
   if (!LOG.length) return toast("Nothing logged yet.");
   const a = document.createElement("a");
@@ -938,7 +983,7 @@ function openGuide(id) {
   $("#guideTitle").textContent = c.name;
   $("#guideSub").textContent = `${c.season === "warm" ? "Warm-season" : "Cool-season"} · ${c.days} days to harvest · needs ${SUN_NEED[id]}h of sun · pH ${c.ph[0]}-${c.ph[1]}`;
   $("#guideBody").innerHTML = `
-    <div class="banner info small"><strong>In your yard:</strong> #${rank} of ${LAST.ranking.length}, ${money(r.net_per_sqft)} net per sq ft${k ? ` (bad year ${perSq(k.bad)}, good year ${perSq(k.good)}; paid off ${k.positive} of ${k.n} seasons)` : ""}. ${esc(r.note)}.${cal ? ` ${esc(cal.now.text)}.` : ""}</div>
+    <div class="banner info small"><strong>In your yard:</strong> <span>#${rank} of ${LAST.ranking.length}, ${money(r.net_per_sqft)} net per sq ft.</span>${k ? ` <span>Bad year ${perSq(k.bad)}, good year ${perSq(k.good)}; paid off ${k.positive} of ${k.n} seasons.</span>` : ""} <span>${esc(r.note)}.</span>${cal ? ` <span>${esc(cal.now.text)}.</span>` : ""}</div>
     <dl class="guide-dl">
       <dt>Spacing</dt><dd>${esc(g.spacing)}</dd>
       <dt>Watering</dt><dd>${esc(g.water)}</dd>
@@ -1047,6 +1092,8 @@ function onOrient(e) {
   const dir = cameraDirection(e.alpha ?? 0, e.beta, e.gamma ?? 0);
   if (typeof e.webkitCompassHeading === "number" && e.webkitCompassHeading >= 0) heading = e.webkitCompassHeading;     // iPhone
   else if ((e.absolute || e.type === "deviceorientationabsolute") && e.alpha != null) heading = dir.heading;               // Android
+  // Correction learned by aiming at the sun (phone compasses are often off by 10-20 degrees near metal or cars).
+  if (heading != null) heading = ((heading + (+store.get("compassfix", 0) || 0)) % 360 + 360) % 360;
   if (heading == null) { if (!SCAN.compass) $("#sunRead").textContent = "Waiting for the compass…"; return; }
   SCAN.compass = true;
   SCAN.last = { heading, elevation: dir.elevation };
@@ -1087,7 +1134,29 @@ function stopScan() {
   $("#viewfinder")?.classList.remove("live");
   $("#scanStart").textContent = "Start"; $("#scanDone").disabled = true;
 }
-$("#scanStart").onclick = () => { stopScan(); startScan(); };
+$("#scanStart").onclick = () => { SCAN.calibrating = false; $("#sunCal").textContent = "Check compass with the sun"; stopScan(); startScan(); };
+// Compass check: the app knows exactly where the sun is, so aiming at it shows how far off the compass reads.
+$("#sunCal").onclick = async () => {
+  const loc = LOCATION || { lat: 40, lon: -74 };
+  const sun = sunNow(loc.lat, loc.lon);
+  if (!SCAN.calibrating) {
+    if (sun.elevation < 3) { $("#scanMsg").textContent = "The sun is down, so it can't be used to check the compass now. Try again in daylight."; return; }
+    if (!SCAN.on) await startScan();
+    SCAN.samples = [];
+    SCAN.calibrating = true;
+    $("#sunCal").textContent = "Lock on the sun";
+    $("#scanMsg").textContent = `Without looking straight at it, put the cross on the sun (it's in the ${compassName(sun.azimuth)}, ${Math.round(sun.elevation)}° up), or the bright patch behind cloud, then tap Lock.`;
+    return;
+  }
+  SCAN.calibrating = false;
+  $("#sunCal").textContent = "Check compass with the sun";
+  if (!SCAN.last) { $("#scanMsg").textContent = "No compass reading yet. Hold the phone up and try again."; return; }
+  const raw = ((SCAN.last.heading - (+store.get("compassfix", 0) || 0)) % 360 + 360) % 360;
+  const fix = compassOffset(raw, sun.azimuth);
+  store.set("compassfix", fix);
+  SCAN.samples = [];
+  $("#scanMsg").textContent = Math.abs(fix) < 4 ? "Your compass is accurate. Tap Restart and sweep the skyline." : `Your compass was off by ${Math.abs(Math.round(fix))}°. Corrected; tap Restart and sweep the skyline.`;
+};
 $("#scanDone").onclick = () => {
   const samples = SCAN.samples.slice();
   stopScan();
@@ -1131,6 +1200,92 @@ function renderWeek(d) {
     <span class="week-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${WEEK_ICON[a.kind] || WEEK_ICON.calm}</svg></span>
     <div><strong>${esc(a.title)}</strong><div class="small dim">${esc(a.detail)}</div></div></li>`).join("");
 }
+
+// ---- Simple view -------------------------------------------------------------------------------------------------------
+// New visitors start with the essentials; everyone can switch with one tap. People who used the app before keep everything.
+let VIEW = store.get("view", null);
+if (VIEW !== "simple" && VIEW !== "full") { VIEW = store.get("toured", false) || store.get("plan", null) ? "full" : "simple"; store.set("view", VIEW); }
+function applyView() {
+  document.documentElement.dataset.view = VIEW;
+  $("#viewBtn").textContent = VIEW === "simple" ? "Show everything" : "Simple view";
+  const cur = $("nav.tabs button.on");
+  if (VIEW === "simple" && cur?.classList.contains("adv")) showTab("soil");
+}
+function setView(v) { VIEW = v; store.set("view", v); applyView(); if (LAST) renderAll(LAST); toast(v === "simple" ? "Simple view: just the essentials." : "Showing everything."); }
+$("#viewBtn").onclick = () => setView(VIEW === "simple" ? "full" : "simple");
+document.addEventListener("click", e => { const b = e.target.closest("button[data-view]"); if (b) setView(b.dataset.view); });
+applyView();
+
+// ---- Prices where you live -----------------------------------------------------------------------------------------
+let PRICES = (() => { const p = asObject(store.get("prices", {})); return Object.fromEntries(Object.entries(p).filter(([k, v]) => CROPS.some(c => c.id === k) && Number.isFinite(+v) && +v > 0).map(([k, v]) => [k, +v])); })();
+const perUnitLabel = () => isMetric() ? "kg" : "lb";
+const priceShown = usdPerLb => Math.round(toLocal(isMetric() ? usdPerLb / KG_PER_LB : usdPerLb) * 100) / 100;
+const priceFromShown = v => toUSD(isMetric() ? +v * KG_PER_LB : +v);
+function renderPrices() {
+  const c = currency();
+  $("#currencySel").innerHTML = Object.entries(CURRENCIES).map(([k, v]) => `<option value="${k}" ${k === c.code ? "selected" : ""}>${k} · ${esc(v.name)}</option>`).join("");
+  $("#fxNote").textContent = c.code === "USD" ? "Prices are in US dollars." :
+    `Converted at ${c.live ? "today's" : "an approximate"} rate: $1 = ${c.sym.trim()}${c.rate.toLocaleString("en-US", { maximumFractionDigits: 3 })}${c.live ? " (European Central Bank)" : ". Today's rate couldn't be loaded"}.`;
+  $$("[data-cur]").forEach(s => (s.textContent = c.sym.trim()));
+  $("#priceGrid").innerHTML = CROPS.map(cr => `<label><span>${esc(cr.name)}</span>
+    <span class="price-in"><span class="dim">${esc(c.sym.trim())}</span><input type="number" min="0" step="0.05" inputmode="decimal" data-price="${cr.id}"
+      value="${PRICES[cr.id] != null ? priceShown(PRICES[cr.id]) : ""}" placeholder="${priceShown(cr.price_per_lb)}" aria-label="${esc(cr.name)} price per ${perUnitLabel()}"><span class="dim small" data-units="us">/${perUnitLabel()}</span></span></label>`).join("");
+  $("#priceCount").textContent = Object.keys(PRICES).length ? `(${Object.keys(PRICES).length} set)` : "";
+  $$("#priceGrid [data-price]").forEach(inp => inp.addEventListener("change", () => {
+    const v = parseFloat(inp.value);
+    if (Number.isFinite(v) && v > 0) PRICES[inp.dataset.price] = Math.round(priceFromShown(v) * 1000) / 1000;
+    else delete PRICES[inp.dataset.price];
+    store.set("prices", PRICES);
+    $("#priceCount").textContent = Object.keys(PRICES).length ? `(${Object.keys(PRICES).length} set)` : "";
+    markLive(); recompute();
+  }));
+}
+$("#currencySel").addEventListener("change", e => { store.set("currency", e.target.value); location.reload(); });
+$("#priceReset").onclick = () => { PRICES = {}; store.set("prices", PRICES); renderPrices(); recompute(); };
+renderPrices();
+
+// ---- Frost & heat alerts (phone notifications, no server) ------------------------------------------------
+const ALERTS_TAG = "eco-alerts";
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+async function writeAlertConfig(enabled = store.get("alerts", false)) {
+  if (!("caches" in window) || !LOCATION) return;
+  const ids = [...new Set(PLAN.filter(p => p.sqft > 0).map(p => p.crop))];
+  const nm = id => CROPS.find(c => c.id === id).name.replace(/\s*\(.*\)/, "").toLowerCase();
+  const cfg = { enabled: !!enabled, lat: LOCATION.lat, lon: LOCATION.lon, metric: isMetric(),
+    tender: ids.filter(id => CROPS.find(c => c.id === id).season === "warm").map(nm),
+    hardy: ids.filter(id => CROPS.find(c => c.id === id).season !== "warm" && !["kale", "garlic", "spinach"].includes(id)).map(nm) };
+  try { await (await caches.open("eco-data")).put("alerts-config", new Response(JSON.stringify(cfg), { headers: { "content-type": "application/json" } })); } catch { /* storage full or blocked */ }
+}
+function alertStatus(text) { $("#alertMsg").textContent = text; }
+function syncAlertButton() {
+  const on = store.get("alerts", false);
+  $("#alertBtn").textContent = on ? "Turn off phone alerts" : "Get frost & heat alerts on this phone";
+  if (on) alertStatus("On: this phone checks the forecast about twice a day and warns you before frost or a heat wave.");
+}
+$("#alertBtn").onclick = async () => {
+  if (store.get("alerts", false)) {
+    store.set("alerts", false); await writeAlertConfig(false);
+    try { const reg = await navigator.serviceWorker.ready; await reg.periodicSync?.unregister(ALERTS_TAG); } catch { /* not registered */ }
+    alertStatus("Alerts are off."); syncAlertButton(); return;
+  }
+  const calTip = "Use “Add my plan to my phone's calendar” on the Calendar tab for planting reminders.";
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) return alertStatus(`This browser can't show alerts for websites. ${calTip}`);
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg || !("periodicSync" in reg)) {
+    return alertStatus(isIOS() ? `iPhones don't let web apps check the weather in the background, so alerts can't work there. The weekly list above updates whenever you open the app. ${calTip}`
+      : `Background checks need Chrome on Android with EcoAnalytics added to the home screen (menu ⋮ → Add to Home screen). ${calTip}`);
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return alertStatus("Notifications are blocked for this site. Allow them in your browser's site settings to get alerts.");
+  try {
+    await reg.periodicSync.register(ALERTS_TAG, { minInterval: 12 * 3600 * 1000 });
+  } catch {
+    return alertStatus("Add EcoAnalytics to your home screen first (menu ⋮ → Add to Home screen), open it from there, then turn alerts on.");
+  }
+  store.set("alerts", true); await writeAlertConfig(true); syncAlertButton();
+  reg.active?.postMessage("eco-check-alerts");
+};
+syncAlertButton();
 
 // ---- How your season is changing -----------------------------------------------------------------------------------
 function sparkTrend(m, { invert = false } = {}) {
@@ -1379,13 +1534,26 @@ const TOUR = [
       <p>Which units do you use?</p><div class="seg tour-units" data-units="us"><button data-u="us" class="${isMetric() ? "" : "on"}">US (°F, lb, sq ft)</button><button data-u="metric" class="${isMetric() ? "on" : ""}">Metric (°C, kg, m²)</button></div>` },
   { target: "#locBox", title: "Start with where your garden is", body: () => `<p>We guessed from your connection. For the best soil numbers, tap <strong>Change</strong> and enter your address, or use your phone's location.</p>` },
   { target: "#weekCard", title: "Your week, done for you", body: () => `<p>Frost, heat, storms, watering and planting dates for your actual beds, from the 7-day forecast. Check it once a week.</p>` },
-  { target: "nav.tabs", title: "Everything else is one tap away", body: () => `<p><strong>Crop value</strong> ranks what pays here. <strong>Garden ROI</strong> holds your beds, yard map and good-year/bad-year odds. <strong>Calendar</strong>, <strong>Water</strong> and <strong>Fertilizer</strong> plan the season. <strong>Guide</strong> fixes problems.</p><p>Tap any <span class="why-dot">i</span> to see exactly where a number comes from.</p>` },
+  { target: "nav.tabs", title: "Everything else is one tap away", body: () => VIEW === "simple"
+      ? `<p><strong>Crop value</strong> ranks what pays here. <strong>Garden ROI</strong> holds your beds. <strong>Calendar</strong> says when to plant. <strong>Guide</strong> fixes problems.</p><p>You're in the simple view. Tap <strong>Show everything</strong> any time for water, fertilizer, the yard map and good-year/bad-year odds.</p>`
+      : `<p><strong>Crop value</strong> ranks what pays here. <strong>Garden ROI</strong> holds your beds, yard map and good-year/bad-year odds. <strong>Calendar</strong>, <strong>Water</strong> and <strong>Fertilizer</strong> plan the season. <strong>Guide</strong> fixes problems.</p><p>Tap any <span class="why-dot">i</span> to see exactly where a number comes from.</p>` },
   { title: "Free, private, yours", body: () => `<p>No account, no ads, no tracking. Your plan stays on this phone; save a backup any time from Garden ROI.</p><p>Tip: add it to your home screen to use it like an app.</p>` },
+];
+// Spanish tour (written whole, since it mixes bold words into sentences).
+const TOUR_ES = [
+  { title: "Te damos la bienvenida a EcoAnalytics", body: () => `<p>Un planificador de huerto gratuito que calcula <strong>tu</strong> suelo, temporada, sol y dinero, y te dice qué cultivar, cuándo y cuánto vale.</p>
+      <p>¿Qué unidades usas?</p><div class="seg tour-units" data-units="us" translate="no"><button data-u="us" class="${isMetric() ? "" : "on"}">EE. UU. (°F, lb, pies²)</button><button data-u="metric" class="${isMetric() ? "on" : ""}">Métrico (°C, kg, m²)</button></div>` },
+  { target: "#locBox", title: "Empieza por dónde está tu huerto", body: () => `<p>Lo calculamos por tu conexión. Para los mejores números de suelo, toca <strong>Cambiar</strong> y escribe tu dirección, o usa la ubicación del teléfono.</p>` },
+  { target: "#weekCard", title: "Tu semana, ya organizada", body: () => `<p>Heladas, calor, tormentas, riego y fechas de siembra para tus canteros reales, según el pronóstico de 7 días. Revísalo una vez por semana.</p>` },
+  { target: "nav.tabs", title: "Todo lo demás está a un toque", body: () => VIEW === "simple"
+      ? `<p><strong>Valor de cultivos</strong> clasifica lo que rinde aquí. <strong>Rentabilidad</strong> guarda tus canteros. <strong>Calendario</strong> dice cuándo sembrar. <strong>Guía</strong> resuelve problemas.</p><p>Estás en la vista simple. Toca <strong>Mostrar todo</strong> cuando quieras para ver agua, abono, el mapa del patio y las probabilidades de año bueno/malo.</p>`
+      : `<p><strong>Valor de cultivos</strong> clasifica lo que rinde aquí. <strong>Rentabilidad</strong> guarda tus canteros, el mapa del patio y las probabilidades de año bueno/malo. <strong>Calendario</strong>, <strong>Agua</strong> y <strong>Abono</strong> planifican la temporada. <strong>Guía</strong> resuelve problemas.</p><p>Toca cualquier <span class="why-dot">i</span> para ver de dónde sale cada número.</p>` },
+  { title: "Gratis, privado, tuyo", body: () => `<p>Sin cuenta, sin anuncios, sin rastreo. Tu plan se queda en este teléfono; guarda una copia cuando quieras desde Rentabilidad.</p><p>Consejo: agrégala a tu pantalla de inicio para usarla como una app.</p>` },
 ];
 let TOUR_I = 0;
 function showTour(i) {
   TOUR_I = i;
-  const s = TOUR[i], box = $("#tour");
+  const s = (lang() === "es" ? TOUR_ES : TOUR)[i], box = $("#tour");
   $$(".tour-focus").forEach(x => x.classList.remove("tour-focus"));
   $("#tourStep").textContent = `${i + 1} of ${TOUR.length}`;
   $("#tourTitle").textContent = s.title;
@@ -1414,6 +1582,9 @@ addEventListener("keydown", e => { if (e.key === "Escape" && !$("#tour").hidden)
 
 // ---- Units ------------------------------------------------------------------------------------------------------------------------
 $("#unitsLbl").textContent = isMetric() ? "°C · kg" : "°F · lb";
+$("#langBtn").textContent = lang() === "es" ? "English" : "Español";
+$("#langBtn").setAttribute("lang", lang() === "es" ? "en" : "es");
+$("#langBtn").onclick = () => { store.set("lang", lang() === "es" ? "en" : "es"); location.reload(); };
 $("#unitsBtn").onclick = () => { store.set("units", isMetric() ? "us" : "metric"); location.reload(); };
 
 // Simple SVG bar chart, sized to its container ------------------------------------------------------
@@ -1464,9 +1635,9 @@ function bars(el, labels, series, opts = {}) {
 // ---- Boot ---------------------------------------------------------------------------------------------------
 (async function boot() {
   const s = store.get("settings", null);
-  $("#waterRate").value = waterPrice.toShown(6);   // typical US rate, in the units shown
+  $("#waterRate").value = wrToShown(6);   // typical US rate, in the units shown
   if (s) {
-    $("#waterRate").value = waterPrice.toShown(+s.water || 0); $("#irrigation").value = s.irr; $("#setupCost").value = s.setup; $("#setupYears").value = s.years; $("#organicOnly").checked = s.org;
+    $("#waterRate").value = wrToShown(+s.water || 0); $("#irrigation").value = s.irr; $("#setupCost").value = s.setup; $("#setupYears").value = s.years; $("#organicOnly").checked = s.org;
     if (s.labor != null) $("#laborHrs").value = s.labor;
     if (s.wage != null) $("#hourlyWage").value = s.wage;
   }

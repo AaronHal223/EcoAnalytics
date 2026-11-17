@@ -16,6 +16,11 @@ export const CM_PER_IN = 2.54;
 export const M_PER_FT = 0.3048;
 export const KMH_PER_MPH = 1.60934;
 
+import { SYMBOL_RE, currency } from "./currency.js";
+
+const SYM = `(?:${SYMBOL_RE})`;
+const mny = v => nice(v, { money: true });
+
 let metric = false;
 export const isMetric = () => metric;
 export function setMetric(on) { metric = !!on; }
@@ -35,7 +40,7 @@ const toNum = s => parseFloat(String(s).replace(/,/g, ""));
 export function nice(v, { money = false, whole = false } = {}) {
   if (!Number.isFinite(v)) return String(v);
   if (whole) { const w = Math.round(v); return String(w === 0 ? 0 : w); }
-  if (money) return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (money) { const d = Math.min(2, currency().dec ?? 2); return v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
   const a = Math.abs(v);
   const d = a >= 100 ? 0 : a >= 10 ? (Number.isInteger(Math.round(v * 10) / 10) ? 0 : 1) : a >= 1 ? 1 : 2;
   const s = v.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
@@ -53,12 +58,12 @@ const inches = v => v * CM_PER_IN;
 // Order matters: compound units before simple ones.
 const RULES = [
   // $ per square foot
-  [new RegExp(String.raw`(-?)\$(${NUM})(\s*(?:/|per ))\s*sq\.? ?ft\b`, "g"),
-    (m) => `${m[1]}$${nice(toNum(m[2]) * SQFT_PER_M2, { money: true })}${m[3].trim() === "/" ? "/" : " per "}m²`],
+  [new RegExp(String.raw`([-−]?)(${SYM})(${NUM})(\s*(?:/|per ))\s*sq\.? ?ft\b`, "g"),
+    (m) => `${m[1]}${m[2]}${mny(toNum(m[3]) * SQFT_PER_M2)}${m[4].trim() === "/" ? "/" : " per "}m²`],
   [new RegExp(String.raw`${RANGE}\s*lb/sq ?ft\b`, "g"), m => `${range(m, v => v * KG_PER_LB * SQFT_PER_M2)} kg/m²`],
   [new RegExp(String.raw`${RANGE}\s*gal/sq ?ft\b`, "g"), m => `${range(m, v => v * L_PER_GAL * SQFT_PER_M2)} L/m²`],
   [new RegExp(String.raw`${RANGE}\s*(?:plants? )?per (\d+ )?sq ?ft\b`, "g"), m => m[0]],   // handled below (counts per area)
-  [new RegExp(String.raw`\$(${NUM})\s*(?:per|/)\s*1,?000 gal(?:lons)?\b`, "g"), m => `$${nice(toNum(m[1]) / L_PER_GAL, { money: true })} per m³`],
+  [new RegExp(String.raw`(${SYM})(${NUM})\s*(?:per|/)\s*1,?000 gal(?:lons)?\b`, "g"), m => `${m[1]}${mny(toNum(m[2]) / L_PER_GAL)} per m³`],
   [new RegExp(String.raw`(?:per|/)\s*1,?000 gal(?:lons)?\b`, "g"), () => "per m³"],
   [new RegExp(String.raw`${RANGE}\s*(?:sq\.? ?ft|square feet|square foot)\b`, "g"), m => `${range(m, v => v / SQFT_PER_M2)} m²`],
   [new RegExp(String.raw`${RANGE}\s*(?:lbs?|pounds?)\b`, "g"), m => `${range(m, v => v * KG_PER_LB)} kg`],
@@ -74,7 +79,7 @@ const RULES = [
   // Bare unit labels (headers like "Water gal/sq ft", "lb/sq ft", "sq ft planted").
   [/\blb\/sq ?ft\b/g, () => "kg/m²"],
   [/\bgal\/sq ?ft\b/g, () => "L/m²"],
-  [/\$\/sq ?ft\b/g, () => "$/m²"],
+  [new RegExp(String.raw`(${SYM})\/sq ?ft\b`, "g"), m => `${m[1]}/m²`],
   [/(\s|^|\/)sq\.? ?ft\b/g, m => `${m[1]}m²`],
   [/\bper square foot\b/g, () => "per square metre"],
   [/\bsquare foot\b/g, () => "square metre"],
@@ -114,11 +119,11 @@ export function convertSplit(numberText, unitText) {
   const u = SPLIT_UNIT.exec(unitText);
   if (!u) return null;
   const key = u[2].replace(/sq ?ft/, "sq ft");
-  const m = /(-?)(\$?)(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*$/.exec(numberText);
+  const m = new RegExp(String.raw`([-−]?)(${SYM})?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*$`).exec(numberText);
   if (!m) return null;
   const v = SPLIT_FN[key](toNum(m[3])) * (m[1] ? -1 : 1);
   const money = !!m[2];
-  const shown = money ? `${v < 0 ? "-" : ""}$${nice(Math.abs(v), { money: true })}` : nice(v);
+  const shown = money ? `${v < 0 ? m[1] || "-" : ""}${m[2]}${mny(Math.abs(v))}` : nice(v);
   return { number: numberText.slice(0, m.index) + shown, unit: unitText.replace(SPLIT_UNIT, `$1${SPLIT_LABEL[key]}`) };
 }
 

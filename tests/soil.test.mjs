@@ -82,10 +82,23 @@ test("everything down: regional averages, clearly labelled", async () => {
   assert.ok(rep.notes.some(n => n.includes("couldn't be reached")));
 });
 
-test("blocked cross-origin calls retry through the host's proxy routes", async () => {
+test("on static hosting, a blocked call goes straight to the fallback with no dead proxy request", async () => {
+  const net = fakeNet();
+  net.fail.add("rest.isric.org");
+  globalThis.location = { protocol: "https:", search: "" };
+  soil._resetModes();
+  try {
+    const rep = await soil.researchSoil(njAddress());
+    assert.equal(rep.values.ph.source, "ssurgo");
+    assert.ok(!net.calls.some(c => c.url.startsWith("proxy/")));
+  } finally { delete globalThis.location; soil._resetModes(); }
+});
+
+test("a self-hosted server can still opt in to proxy routes", async () => {
   const net = fakeNet();
   net.fail.add("sdmdataaccess.sc.egov.usda.gov"); net.fail.add("rest.isric.org");
   globalThis.location = { protocol: "https:", search: "" };
+  globalThis.ECO_PROXY = true;
   soil._resetModes();
   try {
     const rep = await soil.researchSoil(njAddress());
@@ -94,7 +107,7 @@ test("blocked cross-origin calls retry through the host's proxy routes", async (
     assert.ok(net.calls.some(c => c.url === "proxy/sda"));
     assert.ok(net.calls.some(c => c.url.startsWith("proxy/soilgrids/properties/query?")));
   } finally {
-    delete globalThis.location;
+    delete globalThis.location; delete globalThis.ECO_PROXY;
     soil._resetModes();
   }
 });

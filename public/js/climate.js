@@ -25,8 +25,11 @@ function doyOf(isoDate) {
   return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000) + 1;
 }
 
+/** Day of year folded into 1-365 (south of the equator a season's end can be "day 480": April next year). */
+export const wrapDoy = doy => ((Math.round(doy) - 1) % 365 + 365) % 365 + 1;
+
 export function doyLabel(doy) {
-  const d = new Date(Date.UTC(2023, 0, 1) + (Math.round(doy) - 1) * 86400000);
+  const d = new Date(Date.UTC(2023, 0, 1) + (wrapDoy(doy) - 1) * 86400000);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
@@ -34,9 +37,26 @@ export function windowFraction(start, end) {
   const out = [];
   for (let m = 0; m < 12; m++) {
     const a = MONTH_STARTS[m], b = MONTH_STARTS[m + 1];
-    out.push(r(Math.max(0, Math.min(b, end) - Math.max(a, start + 1)) / (b - a)));
+    // A season that runs past Dec 31 (southern hemisphere) also covers the start of the year.
+    const main = Math.max(0, Math.min(b, end) - Math.max(a, start + 1));
+    const wrap = end > 366 ? Math.max(0, Math.min(b, end - 365) - a) : 0;
+    out.push(r(Math.min(1, (main + wrap) / (b - a))));
   }
   return out;
+}
+
+/**
+ * True when frosts come mid-year (June-August): south of the equator the
+ * frost-free season runs from about September through to April of the next year.
+ */
+export function southernFrostPattern(daily) {
+  let mid = 0, ends = 0;
+  for (let i = 0; i < daily.time.length; i++) {
+    if (daily.temperature_2m_min[i] === null || daily.temperature_2m_min[i] > 32) continue;
+    const mo = +daily.time[i].slice(5, 7);
+    if (mo >= 5 && mo <= 9) mid++; else if (mo <= 3 || mo >= 11) ends++;
+  }
+  return mid > ends;
 }
 
 /** Pure function over Open-Meteo `daily` arrays (Fahrenheit, mm). */
@@ -47,6 +67,7 @@ export function summarize(daily, years) {
   const mPr = years.map(() => Array(12).fill(0)), mEt = years.map(() => Array(12).fill(0));
   const mTemp = Array.from({ length: 12 }, () => []);
   const mCool = Array(12).fill(0), mDays = Array(12).fill(0);
+  const south = southernFrostPattern(daily);
 
   years.forEach((y, yi) => {
     const idx = [];
@@ -56,7 +77,12 @@ export function summarize(daily, years) {
       const lo = tmin[i], hi = tmax[i];
       if (lo === null || hi === null) continue;
       const mo = +time[i].slice(5, 7) - 1, doy = doyOf(time[i]);
-      if (lo <= 32) { if (mo < 6) lastSpring = doy; else if (firstFall === null) firstFall = doy; }
+      if (lo <= 32) {
+        // North: spring frosts are Jan-Jun, fall frosts Jul-Dec. South: the other way round,
+        // and the fall frost (Mar-Jun) ends the season that began the previous spring.
+        const springHalf = south ? mo >= 6 : mo < 6;
+        if (springHalf) lastSpring = doy; else if (firstFall === null) firstFall = doy;
+      }
       const t = (lo + hi) / 2;
       mTemp[mo].push(t); mDays[mo]++;
       if (t >= 40 && t <= 75) mCool[mo]++;
@@ -64,13 +90,14 @@ export function summarize(daily, years) {
       mEt[yi][mo] += et0[i] || 0;
     }
     const daysInYear = y % 4 === 0 ? 366 : 365;
-    const sp = lastSpring || 0, fa = firstFall || daysInYear + 1;
+    const sp = south ? (lastSpring || 182) : (lastSpring || 0);
+    const fa = south ? (firstFall ? firstFall + daysInYear : daysInYear + 182) : (firstFall || daysInYear + 1);
     springs.push(sp); falls.push(fa); seasons.push(Math.max(0, fa - sp - 1));
     let g = 0, c = 0;
     for (const i of idx) {
       if (tmin[i] === null || tmax[i] === null) continue;
       const doy = doyOf(time[i]), t = (tmin[i] + tmax[i]) / 2;
-      if (doy > sp && doy < fa) g += Math.max(0, (Math.min(tmax[i], 86) + Math.max(tmin[i], 50)) / 2 - 50);
+      if ((doy > sp && doy < fa) || (fa > daysInYear && doy < fa - daysInYear)) g += Math.max(0, (Math.min(tmax[i], 86) + Math.max(tmin[i], 50)) / 2 - 50);
       if (t >= 40 && t <= 75) c++;
     }
     gdds.push(g); cools.push(c);
@@ -82,10 +109,11 @@ export function summarize(daily, years) {
   const spM = median(springs), faM = median(falls);
   return {
     frost_free_days: Math.floor(median(seasons)),
-    last_spring_frost: spM > 0 ? doyLabel(spM) : null,
-    first_fall_frost: faM <= 365 ? doyLabel(faM) : null,
-    last_spring_frost_doy: spM > 0 ? Math.round(spM) : null,
-    first_fall_frost_doy: faM <= 365 ? Math.round(faM) : null,
+    last_spring_frost: spM > 0 && !(south && Math.floor(median(seasons)) >= 364) ? doyLabel(spM) : null,
+    first_fall_frost: (south ? Math.floor(median(seasons)) < 364 : faM <= 365) ? doyLabel(faM) : null,
+    last_spring_frost_doy: spM > 0 && !(south && Math.floor(median(seasons)) >= 364) ? Math.round(spM) : null,
+    first_fall_frost_doy: (south ? Math.floor(median(seasons)) < 364 : faM <= 365) ? Math.round(faM) : null,
+    southern: south,
     season_gdd50: Math.round(median(gdds)),
     cool_growing_days: Math.floor(median(cools)),
     monthly_precip_in: precip, monthly_et0_in: et,
@@ -118,17 +146,20 @@ export async function getClimate(lat, lon, today = new Date()) {
 export function fallbackClimate(lat, years) {
   const a = Math.abs(lat);
   const ffd = Math.floor(Math.max(90, Math.min(365, 365 - (a - 25) * 11)));
-  const sp = Math.max(0, 197 - ffd / 2), fa = Math.min(366, 197 + ffd / 2);
+  // Summer is centred on mid-July in the north and mid-January (day 380 = Jan 15 next year) in the south.
+  const south = lat < 0, mid = south ? 380 : 197, hot = south ? 0 : 6;
+  const sp = ffd >= 365 ? 0 : Math.max(0, mid - ffd / 2), fa = ffd >= 365 ? 366 : (south ? mid + ffd / 2 : Math.min(366, mid + ffd / 2));
   const peak = 6.5 - (a - 30) * 0.05;
-  const et = MONTHS.map((_, m) => r(Math.max(0.6, peak * (0.55 + 0.45 * Math.cos(2 * Math.PI * (m - 6) / 12)))));
-  const temp = MONTHS.map((_, m) => r(75 - (a - 30) * 0.9 - (22 + (a - 30) * 0.5) * (1 - Math.cos(2 * Math.PI * (m - 6) / 12)) / 2, 1));
+  const et = MONTHS.map((_, m) => r(Math.max(0.6, peak * (0.55 + 0.45 * Math.cos(2 * Math.PI * (m - hot) / 12)))));
+  const temp = MONTHS.map((_, m) => r(75 - (a - 30) * 0.9 - (22 + (a - 30) * 0.5) * (1 - Math.cos(2 * Math.PI * (m - hot) / 12)) / 2, 1));
   const cool = temp.map(t => (t >= 40 && t <= 75) ? 1 : 0);
   return {
     frost_free_days: ffd,
     last_spring_frost: sp > 0 ? doyLabel(sp) : null,
-    first_fall_frost: fa <= 365 ? doyLabel(fa) : null,
+    first_fall_frost: fa <= 365 || (south && ffd < 365) ? doyLabel(fa) : null,
     last_spring_frost_doy: sp > 0 ? Math.round(sp) : null,
-    first_fall_frost_doy: fa <= 365 ? Math.round(fa) : null,
+    first_fall_frost_doy: fa <= 365 || (south && ffd < 365) ? Math.round(fa) : null,
+    southern: south,
     season_gdd50: Math.round(ffd * Math.max(5, 22 - (a - 30) * 0.5)),
     cool_growing_days: Math.floor(cool.reduce((s, c) => s + c * 30.4, 0)),
     monthly_precip_in: Array(12).fill(3.3), monthly_et0_in: et, monthly_tmean_f: temp,

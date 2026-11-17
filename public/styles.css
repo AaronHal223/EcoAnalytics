@@ -8,8 +8,8 @@
   --paper:#eef3ea; --card:#fbfdf8; --ink:#1d2a21; --ink-dim:#5c6c60; --line:#d9e4d4;
   --moss:#2f6b45; --moss-soft:#e0eddf; --leaf:#6aa864; --sage:#9dbb93;
   --clay:#ad6648; --clay-soft:#f3e5db; --wheat:#b8952f; --wheat-soft:#f2ecd2;
-  --water:#2c7c82; --water-soft:#d9ecec;
-  --good:#2f7a45; --warn:#8a6818; --bad:#ae4c36; --on-accent:#fff;
+  --water:#2c7c82; --water-soft:#d9ecec; --water-ink:#1f6469; --clay-ink:#8c4b30;
+  --good:#2f7a45; --warn:#745710; --bad:#9a3f2a; --on-accent:#fff;
   --hero-a:#24563a; --hero-b:#4f8a5b; --hero-ink:#f3f8ef;
   --radius:16px; --shadow:0 1px 0 rgba(29,42,33,.04),0 10px 24px -18px rgba(29,42,33,.45);
   --shadow-hover:0 1px 0 rgba(29,42,33,.04),0 16px 30px -18px rgba(29,42,33,.55);
@@ -19,7 +19,7 @@
   --paper:#0f1712; --card:#162119; --ink:#e3ede0; --ink-dim:#9db0a1; --line:#25342a;
   --moss:#8cc79a; --moss-soft:#1e3125; --leaf:#7fbf78; --sage:#5c7a5f;
   --clay:#df9273; --clay-soft:#382720; --wheat:#d9bd66; --wheat-soft:#322e1b;
-  --water:#6cc2c3; --water-soft:#152e2e;
+  --water:#6cc2c3; --water-soft:#152e2e; --water-ink:#6cc2c3; --clay-ink:#df9273;
   --good:#8fd19b; --warn:#e2c26a; --bad:#ee8f78; --on-accent:#0f1712;
   --hero-a:#173322; --hero-b:#2b5236; --hero-ink:#e3ede0;
   --shadow:none; --shadow-hover:0 0 0 1px var(--sage);}}
@@ -27,7 +27,7 @@
   --paper:#0f1712; --card:#162119; --ink:#e3ede0; --ink-dim:#9db0a1; --line:#25342a;
   --moss:#8cc79a; --moss-soft:#1e3125; --leaf:#7fbf78; --sage:#5c7a5f;
   --clay:#df9273; --clay-soft:#382720; --wheat:#d9bd66; --wheat-soft:#322e1b;
-  --water:#6cc2c3; --water-soft:#152e2e;
+  --water:#6cc2c3; --water-soft:#152e2e; --water-ink:#6cc2c3; --clay-ink:#df9273;
   --good:#8fd19b; --warn:#e2c26a; --bad:#ee8f78; --on-accent:#0f1712;
   --hero-a:#173322; --hero-b:#2b5236; --hero-ink:#e3ede0;
   --shadow:none; --shadow-hover:0 0 0 1px var(--sage);}
@@ -39,7 +39,7 @@ body{margin:0;color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-ser
              radial-gradient(900px 500px at -10% 30%,var(--water-soft),transparent 55%),var(--paper);
   background-attachment:fixed;min-height:100vh}
 .num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
+h1,h2,:is(h2,h3){font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px 64px}
 
 /* Hero header ------------------------------------------------------------------ */
@@ -100,7 +100,7 @@ section.tab{display:none} section.tab.on{display:block}
 .gap{height:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);min-width:0;transition:transform .25s var(--ease),box-shadow .25s}
 .card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
-.card h3{font-size:1.1rem;margin-bottom:8px}
+.card :is(h2,h3){font-size:1.1rem;margin-bottom:8px}
 section.tab.on .card{animation:rise .5s var(--ease) both}
 section.tab.on .grid > .card:nth-child(2){animation-delay:.04s}
 section.tab.on .grid > .card:nth-child(3){animation-delay:.08s}
@@ -158,7 +158,7 @@ td.r,th.r{text-align:right}
 .addbtn{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--moss);background:transparent;color:var(--moss);border-radius:999px;padding:3px 10px;cursor:pointer;white-space:nowrap;transition:background .2s,color .2s}
 .addbtn:hover{background:var(--moss);color:var(--on-accent)}
 .season-tag{font-size:.72rem;font-weight:600;border-radius:6px;padding:1px 6px;white-space:nowrap}
-.season-tag.warm{background:var(--clay-soft);color:var(--clay)} .season-tag.cool{background:var(--water-soft);color:var(--water)}
+.season-tag.warm{background:var(--clay-soft);color:var(--clay-ink,var(--clay))} .season-tag.cool{background:var(--water-soft);color:var(--water-ink,var(--water))}
 .rank-list{display:none;list-style:none;margin:0;padding:0}
 .rank-list li{display:grid;grid-template-columns:28px 1fr auto;gap:4px 10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
 .rank-list .pos{color:var(--ink-dim);font-size:.85rem}
@@ -274,7 +274,7 @@ dialog#whySheet,dialog.sheet{border:1px solid var(--line);border-radius:18px;bac
 dialog#whySheet::backdrop,dialog.sheet::backdrop{background:rgba(10,20,14,.5)}
 dialog#whySheet[open],dialog.sheet[open]{animation:rise .3s var(--ease) both}
 .why-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.why-head h3{font-size:1.3rem;margin-top:2px}
+.why-head :is(h2,h3){font-size:1.3rem;margin-top:2px}
 .why-sum{color:var(--moss);font-size:1.05rem;margin-top:2px}
 .why-close{border:0;background:var(--paper);color:var(--ink-dim);border-radius:50%;width:32px;height:32px;font-size:1.3rem;cursor:pointer;flex:none}
 .why-steps{margin:12px 0;padding-left:20px;font-size:.92rem}
@@ -314,7 +314,7 @@ dialog#whySheet[open],dialog.sheet[open]{animation:rise .3s var(--ease) both}
 .fc-day .d{font-weight:600;font-size:.85rem}
 .fc-day .t{color:var(--ink-dim)}
 .fc-day .act{margin-top:4px;font-weight:600;color:var(--ink-dim)}
-.fc-day.water{border-color:var(--water);background:var(--water-soft)} .fc-day.water .act{color:var(--water)}
+.fc-day.water{border-color:var(--water);background:var(--water-soft)} .fc-day.water .act{color:var(--water-ink,var(--water))}
 .fc-day.skip .act{color:var(--good)}
 .fc-day.cold{outline:2px solid var(--clay);outline-offset:-2px}
 
@@ -419,7 +419,7 @@ footer a{color:var(--moss)}
 /* ===========================================================================
    This week, season shift, yard map, strip reader, tour
    =========================================================================== */
-.week h3{margin:0}
+.week :is(h2,h3){margin:0}
 .week-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
 .week-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--paper)}
 .week-item strong{display:block;margin-bottom:2px}
@@ -473,7 +473,7 @@ label.btn.file-btn:not(.ghost){background:var(--moss);color:#fff;border:1px soli
 .tour.anchored{align-items:end;background:rgba(10,20,14,.25)}
 .tour-card{width:min(440px,100%);background:var(--card);color:var(--ink);border-radius:20px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:grid;gap:8px;margin-bottom:calc(env(safe-area-inset-bottom) + 76px)}
 .tour:not(.anchored) .tour-card{margin-bottom:0}
-.tour-card h3{margin:0}
+.tour-card :is(h2,h3){margin:0}
 .tour-card p{margin:0 0 6px}
 .tour-dots{display:flex;gap:6px}
 .tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
@@ -490,3 +490,17 @@ label.btn.file-btn:not(.ghost){background:var(--moss);color:#fff;border:1px soli
   .yard-tools input{width:90px}
   .tour.anchored{align-items:end}
 }
+.alert-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:12px}
+.alert-row .small{flex:1 1 220px}
+.prices-box{margin-top:12px}
+.prices-box summary{cursor:pointer;font-weight:600;color:var(--moss)}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px;margin-top:10px}
+.price-grid label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.88rem}
+.price-in{display:inline-flex;align-items:center;gap:4px}
+.price-in input{width:84px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--paper);color:var(--ink)}
+html[data-view="simple"] .adv{display:none!important}
+.simple-banner{display:none}
+html[data-view="simple"] .simple-banner{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--moss-soft);font-size:.88rem}
+.simple-banner span{flex:1 1 240px}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

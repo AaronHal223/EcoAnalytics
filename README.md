@@ -50,6 +50,12 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 - **Test-strip reader.** Photograph a cheap pH strip or capsule kit *next to its colour chart*, tap the test and the chart colours, and the phone reads it, comparing colours in CIELAB under the same light. The reading goes straight into your soil test and every number updates. The photo never leaves the phone (`js/strip.js`).
 - **How your season is changing.** The 15 past seasons also show trends at your exact spot: last spring frost, first fall frost, season length and summer heat, with a straight-line trend that only counts when it stands out from normal year-to-year swings, and what it means for what you plant (`js/trend.js`).
 - **Ready for the world.** Metric units (°C, kg, m², L) chosen automatically outside the US or with one tap; addresses and postcodes anywhere (soil comes from ISRIC SoilGrids outside the US); a short first-run tour (`js/units.js`).
+- **Frost and heat alerts on the phone, with no server.** On Android (Chrome, app added to the home screen) the phone wakes the app about twice a day, checks a free 3-day forecast and warns before frost, a hard freeze or a heat wave for the crops in your beds (`alerts-core.js`, `sw.js`). iPhones don't allow background checks for web apps, so there the weekly list and calendar reminders do the job.
+- **Works south of the equator.** Frost dates, season length, planting windows and summer heat all handle a growing season that runs across New Year (Australia, New Zealand, South Africa, South America).
+- **29 crops, your own prices, your currency.** Ten more crops (eggplant, winter squash, pole beans, sweet potatoes, cantaloupe, broccoli, cabbage, arugula, cilantro, parsley). Enter what your store charges and every number follows. Money shows in 20 currencies at today's European Central Bank rate (`js/currency.js`).
+- **Simple view.** New visitors see just where they are, what to plant and this week; one tap shows everything.
+- **Spanish.** The interface, weekly list, tour, problem solver and explanations on the main screens are in Spanish (`js/i18n.js`, `js/lang-es.js`). The per-crop growing details are still in English.
+- **Accessible.** Checked with axe-core on every tab, light and dark: colour contrast, headings, landmarks, labels and keyboard access to scrolling areas.
 - **It learns your yard.** Log pounds picked, press **Finish season**, and that crop's yield is scaled by what you actually got (clamped, averaged over the last three seasons, never compounding on itself). Logging is optional (`js/calibration.js`).
 
 The watering model, calendar shifts and labor hours are simple rules of thumb, and each says so in its **i** sheet. The labor default (1 hour per week per 100 sq ft) is an assumption you should change.
@@ -120,7 +126,7 @@ Add `?offline=1` to the URL to run on built-in estimates with no network calls.
 npm test
 ```
 
-112 tests (Node's built-in runner, no dependencies) cover the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
+126 tests (Node's built-in runner, no dependencies) cover southern-hemisphere seasons, phone alerts, currency, Spanish, the season report, the sun compass check, the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
 
 ## Make it yours
 
@@ -161,6 +167,12 @@ tests/                   node --test suite
 render.yaml              Render hosting blueprint
 ```
 
+## Beta testing
+
+The yields and prices are typical figures, so the most valuable thing is real harvests. To run a beta: ask 10-20 growers to plan their beds, log what they pick in **Harvest log**, and at the end of the season tap **Season report for testers** and send the file. Each row is predicted vs. actual pounds for one crop, with sun hours, soil texture and pH, frost-free days and heat, and the location rounded to about 50 km. Comparing rows across gardens shows which crops' `yield_lb_per_sqft` in `public/js/data.js` need adjusting.
+
+For the camera tools: on each test phone, open a bed's sun button, tap **Check compass with the sun** (the app knows exactly where the sun is, so this measures and corrects compass error), then sweep. For the strip reader, test with real kits in daylight and compare against the kit's chart by eye.
+
 ## Free and open
 
 EcoAnalytics is free for anyone, with no account, ads or tracking, and the code is open under the [MIT licence](LICENSE). It costs nothing to run: a static site on GitHub Pages, using only free public data services. Corrections to prices, yields and the crop guide are especially welcome: everything lives in `public/js/data.js` and `public/js/guide.js`.
@@ -170,6 +182,7 @@ EcoAnalytics is free for anyone, with no account, ads or tracking, and the code 
 - Soil surveys describe **native** soil. Raised beds filled with bagged mix, or yards built on construction fill, can be very different. A $15-25 soil test from your state's extension office is the single best upgrade.
 - Prices are typical US supermarket and garden-center values. Edit them to match yours.
 - Soil is most detailed in the US (USDA soil survey); elsewhere it comes from global 250 m soil maps, so a soil test matters more. Prices are typical US prices.
-- The interface is in English. Phones' built-in page translation (Chrome, Safari) handles other languages.
+- English and Spanish only; the per-crop growing details are English in both. Phones' built-in page translation covers other languages.
+- Phone alerts work on Android only (an iPhone limit for web apps).
 - The camera scan needs a phone that shares its compass with web pages (iPhone Safari and Android Chrome do). Elsewhere use the quick estimate.
 - Good year / bad year varies the weather only. Pests, hail and a busy summer can also cost a harvest.

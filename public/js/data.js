@@ -314,6 +314,171 @@ export const CROPS = [
       6
     ],
     "max_plantings": 1
+  },
+  {
+    "id": "eggplant",
+    "name": "Eggplant",
+    "season": "warm",
+    "days": 75,
+    "yield_lb_per_sqft": 0.9,
+    "price_per_lb": 2.2,
+    "cost_per_sqft": 1.0,
+    "kc": 0.9,
+    "n_demand": "med",
+    "ph": [
+      5.8,
+      6.8
+    ],
+    "gdd50": 1400,
+    "max_plantings": 1
+  },
+  {
+    "id": "winter_squash",
+    "name": "Winter squash (butternut)",
+    "season": "warm",
+    "days": 100,
+    "yield_lb_per_sqft": 0.6,
+    "price_per_lb": 1.5,
+    "cost_per_sqft": 0.08,
+    "kc": 0.85,
+    "n_demand": "med",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "gdd50": 1600,
+    "max_plantings": 1
+  },
+  {
+    "id": "pole_bean",
+    "name": "Green beans (pole)",
+    "season": "warm",
+    "days": 65,
+    "yield_lb_per_sqft": 0.9,
+    "price_per_lb": 2.9,
+    "cost_per_sqft": 0.25,
+    "kc": 0.8,
+    "n_demand": "low",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "gdd50": 1150,
+    "max_plantings": 1
+  },
+  {
+    "id": "sweet_potato",
+    "name": "Sweet potatoes",
+    "season": "warm",
+    "days": 100,
+    "yield_lb_per_sqft": 0.9,
+    "price_per_lb": 1.3,
+    "cost_per_sqft": 0.5,
+    "kc": 0.8,
+    "n_demand": "low",
+    "ph": [
+      5.5,
+      6.5
+    ],
+    "gdd50": 1700,
+    "max_plantings": 1
+  },
+  {
+    "id": "cantaloupe",
+    "name": "Cantaloupe",
+    "season": "warm",
+    "days": 85,
+    "yield_lb_per_sqft": 0.6,
+    "price_per_lb": 1.0,
+    "cost_per_sqft": 0.1,
+    "kc": 0.85,
+    "n_demand": "med",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "gdd50": 1400,
+    "max_plantings": 1
+  },
+  {
+    "id": "broccoli",
+    "name": "Broccoli",
+    "season": "cool",
+    "days": 65,
+    "yield_lb_per_sqft": 0.4,
+    "price_per_lb": 2.5,
+    "cost_per_sqft": 0.4,
+    "kc": 0.95,
+    "n_demand": "high",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "max_plantings": 2
+  },
+  {
+    "id": "cabbage",
+    "name": "Cabbage",
+    "season": "cool",
+    "days": 70,
+    "yield_lb_per_sqft": 1.2,
+    "price_per_lb": 0.9,
+    "cost_per_sqft": 0.3,
+    "kc": 0.95,
+    "n_demand": "high",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "max_plantings": 2
+  },
+  {
+    "id": "arugula",
+    "name": "Arugula",
+    "season": "cool",
+    "days": 35,
+    "yield_lb_per_sqft": 0.3,
+    "price_per_lb": 8.0,
+    "cost_per_sqft": 0.08,
+    "kc": 0.9,
+    "n_demand": "med",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "max_plantings": 3
+  },
+  {
+    "id": "cilantro",
+    "name": "Cilantro",
+    "season": "cool",
+    "days": 45,
+    "yield_lb_per_sqft": 0.25,
+    "price_per_lb": 6.0,
+    "cost_per_sqft": 0.08,
+    "kc": 0.8,
+    "n_demand": "low",
+    "ph": [
+      6.2,
+      6.8
+    ],
+    "max_plantings": 3
+  },
+  {
+    "id": "parsley",
+    "name": "Parsley",
+    "season": "cool",
+    "days": 75,
+    "yield_lb_per_sqft": 0.4,
+    "price_per_lb": 6.0,
+    "cost_per_sqft": 0.2,
+    "kc": 0.8,
+    "n_demand": "med",
+    "ph": [
+      6.0,
+      7.0
+    ],
+    "max_plantings": 1
   }
 ];
 

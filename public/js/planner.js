@@ -64,11 +64,22 @@ const SPRING_ONLY = new Set(["onion", "potato"]);                    // can't be
 const HARVEST_SPAN = {                                                 // days a planting keeps giving
   tomato: 45, cherry_tomato: 55, pepper: 45, zucchini: 40, cucumber: 35, bush_bean: 21, sweet_corn: 10, basil: 60,
   lettuce: 21, spinach: 21, kale: 60, chard: 60, snap_pea: 21, carrot: 28, radish: 10, beet: 21, onion: 14, garlic: 14, potato: 14,
+  eggplant: 45, winter_squash: 14, pole_bean: 45, sweet_potato: 14, cantaloupe: 21, broccoli: 21, cabbage: 21, arugula: 21, cilantro: 21, parsley: 90,
 };
 const TENDER_BUFFER = 14;       // warm crops wait this long after the last frost
 const COOL_HEAD_START = 28;     // cool crops can start this long before the last frost
 const clampDoy = d => Math.max(1, Math.min(365, Math.round(d)));
-const win = (kind, season, start, end, extra = {}) => ({ kind, season, start: clampDoy(start), end: clampDoy(Math.max(start, end)), ...extra });
+/**
+ * A window as day-of-year ranges. Seasons south of the equator run past Dec 31, so a window
+ * can start after day 365 (fold it back) or cross the year end (split it in two).
+ */
+function win(kind, season, start, end, extra = {}) {
+  let s = Math.round(start), e = Math.round(Math.max(start, end));
+  if (s > 365 && !extra.nextYear) { s -= 365; e -= 365; }
+  if (s < 1 && e >= 1 && !extra.nextYear) s = 1;
+  if (e <= 365 || extra.nextYear) return [{ kind, season, start: clampDoy(s), end: clampDoy(e), ...extra }];
+  return [{ kind, season, start: clampDoy(s), end: 365, ...extra }, { kind, season, start: 1, end: clampDoy(e - 365), ...extra }];
+}
 
 /** Sowing and harvest windows for one crop. */
 export function cropWindows(crop, soil, cl) {
@@ -82,22 +93,23 @@ export function cropWindows(crop, soil, cl) {
     const latest = fall - crop.days;                        // last day that still ripens before frost
     const end = Math.min(start + 28, latest);
     if (latest < start) notes.push("Your season is short for this crop: start it indoors early or choose a faster variety.");
-    windows.push(win("sow", "spring", start, end));
-    if (start + crop.days <= fall) windows.push(win("harvest", "spring", start + crop.days, Math.min(fall, start + crop.days + span)));
+    windows.push(...win("sow", "spring", start, end));
+    if (start + crop.days <= fall) windows.push(...win("harvest", "spring", start + crop.days, Math.min(fall, start + crop.days + span)));
   } else if (crop.overwinter) {
     const start = fall - 7 + Math.max(0, sh.days), end = start + 28;
-    windows.push(win("sow", "fall", start, end));
-    const h = start + crop.days - 365;                      // next year
-    windows.push(win("harvest", "next", h, h + span, { nextYear: true }));
+    windows.push(...win("sow", "fall", start, end));
+    const s0 = start > 365 ? start - 365 : start;           // southern hemisphere: fall is in the next calendar year
+    const h = s0 + crop.days, next = h > 365;
+    windows.push(...win("harvest", next ? "next" : "spring", next ? h - 365 : h, (next ? h - 365 : h) + span, next ? { nextYear: true } : {}));
     notes.push("Plant in fall; it overwinters and is harvested next summer.");
   } else {
     const start = spring - COOL_HEAD_START + Math.max(0, sh.days);
-    windows.push(win("sow", "spring", start, start + 21));
-    windows.push(win("harvest", "spring", start + crop.days, start + crop.days + span));
+    windows.push(...win("sow", "spring", start, start + 21));
+    windows.push(...win("harvest", "spring", start + crop.days, start + crop.days + span));
     if (!SPRING_ONLY.has(crop.id)) {
       const fs = fall - crop.days - 21;
-      windows.push(win("sow", "fall", fs, fs + 14));
-      windows.push(win("harvest", "fall", fs + crop.days, Math.min(365, fall + 21)));
+      windows.push(...win("sow", "fall", fs, fs + 14));
+      windows.push(...win("harvest", "fall", fs + crop.days, fall > 365 ? fall + 21 : Math.min(365, fall + 21)));
     }
   }
   const ph = soil.values.ph.value, pf = phFactor(crop, ph);

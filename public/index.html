@@ -47,7 +47,7 @@
   </div>
 </header>
 
-<div class="loc" id="locBox">
+<section class="loc" id="locBox" aria-label="Garden location">
   <div class="loc-top">
     <span class="loc-pin" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
     <div style="flex:1;min-width:0"><div class="eyebrow">Garden location</div><div class="loc-label" id="locLabel">Finding you…</div></div>
@@ -56,42 +56,46 @@
   </div>
   <div class="vpn" id="vpnBox" hidden></div>
   <div class="loc-form">
-    <input id="addrInput" placeholder="Address, town or postcode (most accurate)" autocomplete="street-address" inputmode="text">
+    <input id="addrInput" aria-label="Garden address, town or postcode" placeholder="Address, town or postcode (most accurate)" autocomplete="street-address" inputmode="text">
     <button class="btn" id="addrBtn">Use this</button>
     <button class="btn ghost" id="gpsBtn">Use device location</button>
   </div>
   <div class="small dim" id="locHint">Soil is looked up from USDA soil surveys (US) or global soil maps (everywhere else) around this point. The more exact the location, the tighter the estimate.</div>
-</div>
+</section>
 
-<nav class="tabs" role="tablist" aria-label="Sections">
-  <button class="on" data-tab="soil" role="tab">
+<nav class="tabs" aria-label="Sections">
+  <button class="on" data-tab="soil" aria-current="page">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 14h18M3 19h18"/><path d="M12 9V4m0 0c-2 0-3.5 1-4 2.5M12 4c2 0 3.5 1 4 2.5"/></svg>
     <span>Soil</span></button>
-  <button data-tab="crops" role="tab">
+  <button data-tab="crops">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-4 3-6 7-6 0 4-3 6-7 6z"/></svg>
     <span>Crop<span class="tab-long"> value</span></span></button>
-  <button data-tab="calendar" role="tab">
+  <button data-tab="calendar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4m6-4v4"/></svg>
     <span>Calendar</span></button>
-  <button data-tab="roi" role="tab">
+  <button data-tab="roi">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2m0 8v2"/></svg>
     <span><span class="tab-long">Garden </span>ROI</span></button>
-  <button data-tab="water" role="tab">
+  <button data-tab="water" class="adv">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
     <span>Water<span class="tab-long"> cost</span></span></button>
-  <button data-tab="fert" role="tab">
+  <button data-tab="fert" class="adv">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l2 5v11H5V9z"/><path d="M5 9h14M10 14h4"/></svg>
     <span>Fertilizer<span class="tab-long"> plan</span></span></button>
-  <button data-tab="guide" role="tab">
+  <button data-tab="guide">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5M9 8h7M9 12h5"/></svg>
     <span>Guide</span></button>
 </nav>
 
+<main id="main">
 <!-- SOIL -->
 <section class="tab on" id="tab-soil">
   <div class="card week" id="weekCard">
-    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>This week in your garden</h3><span class="small dim" id="weekSub"></span></div>
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h2>This week in your garden</h2><span class="small dim" id="weekSub"></span></div>
     <ol class="week-list" id="weekList"><li class="skeleton" style="height:56px"></li></ol>
+    <div class="simple-banner" id="simpleBanner"><span><strong>Simple view:</strong> just the essentials (where you are, what to plant, and this week). Water, fertilizer, risk and yard tools are a tap away.</span>
+      <button class="btn ghost" data-view="full">Show everything</button></div>
+    <div class="alert-row"><button class="btn ghost" id="alertBtn">Get frost &amp; heat alerts on this phone</button><span class="small dim" id="alertMsg"></span></div>
   </div>
   <div class="gap"></div>
   <div class="grid g4" id="seasonTiles"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
@@ -99,9 +103,9 @@
   <div class="grid g3" id="soilCards"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
   <div class="gap"></div>
   <div class="grid g3">
-    <div class="card" id="textureCard"></div>
-    <div class="card">
-      <h3>How sure are these numbers?</h3>
+    <div class="card adv" id="textureCard"></div>
+    <div class="card adv">
+      <h2>How sure are these numbers?</h2>
       <ul class="notes" id="soilNotes"></ul>
       <p class="small dim" id="soilSources"></p>
     </div>
@@ -120,13 +124,13 @@
       </details>
       <div class="strip-cta">
         <button class="btn ghost" id="stripBtn">Read a test strip with your camera</button>
-        <span class="small dim">Photograph a $10 pH strip or kit next to its colour chart. Read on your phone, never uploaded.</span>
+        <span class="small dim">Photograph a cheap pH strip or kit next to its colour chart. Read on your phone, never uploaded.</span>
       </div>
     </div>
   </div>
   <div class="gap"></div>
-  <div class="card" id="shiftCard">
-    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>How your season is changing</h3><span class="small dim" id="shiftSub"></span></div>
+  <div class="card adv" id="shiftCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h2>How your season is changing</h2><span class="small dim" id="shiftSub"></span></div>
     <div id="shiftBody"><p class="small dim" style="margin:0">Loading 15 years of local weather…</p></div>
   </div>
 </section>
@@ -138,7 +142,7 @@
       <div class="seg" id="sunSeg" role="radiogroup" aria-label="Hours of direct sun">
         <button data-sun="8" role="radio">Full 8h+</button><button data-sun="6" role="radio">6h</button><button data-sun="4" role="radio">4h</button><button data-sun="2" role="radio">Shade</button>
       </div></div>
-    <div><div class="eyebrow" style="margin-bottom:6px">Rank by</div>
+    <div class="adv"><div class="eyebrow" style="margin-bottom:6px">Rank by</div>
       <div class="seg" id="rankBy" role="radiogroup" aria-label="Rank crops by">
         <button data-by="typical" role="radio">Typical year</button><button data-by="safe" role="radio">Bad year (safest)</button>
       </div></div>
@@ -146,10 +150,21 @@
   </div>
   <div class="gap"></div>
   <div class="card">
-    <div class="row rank-head" style="flex-wrap:wrap"><h3>Which crops pay best per square foot here</h3>
+    <div class="row rank-head" style="flex-wrap:wrap"><h2>Which crops pay best per square foot here</h2>
       <span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil, season and sun. Tap a crop for its growing guide.</span></div>
-    <div class="table-wrap"><table id="rankTable"></table></div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="rankTable"></table></div>
     <ol class="rank-list" id="rankList"></ol>
+  </div>
+  <div class="gap"></div>
+  <div class="card adv" id="pricesCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h2>Prices where you live</h2>
+      <span class="small dim">Built-in prices are typical US store prices. Enter what your store charges and every number follows.</span></div>
+    <div class="form-grid" style="margin-top:10px"><label>Currency<select id="currencySel"></select></label></div>
+    <p class="small dim" id="fxNote" style="margin:8px 0 0"></p>
+    <details class="prices-box"><summary>Enter your store's prices <span class="small dim" id="priceCount"></span></summary>
+      <div class="price-grid" id="priceGrid"></div>
+      <button class="btn ghost" id="priceReset" style="margin-top:10px">Go back to typical prices</button>
+    </details>
   </div>
 </section>
 
@@ -157,7 +172,7 @@
 <section class="tab" id="tab-calendar">
   <div class="card">
     <div class="row cal-head">
-      <h3>What to plant, and when</h3>
+      <h2>What to plant, and when</h2>
       <div class="seg" id="calScope" role="radiogroup" aria-label="Which crops to show">
         <button data-scope="plan" role="radio">My plan</button><button data-scope="all" role="radio">All crops</button>
       </div>
@@ -175,7 +190,7 @@
 <section class="tab" id="tab-roi">
   <div class="grid split">
     <div class="card">
-      <h3>Your garden plan</h3>
+      <h2>Your garden plan</h2>
       <div id="planRows"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button class="btn ghost" id="addRow">+ Add bed</button>
@@ -192,26 +207,26 @@
         <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="autoGo">Replace my plan</button><button class="btn ghost" id="autoCancel">Cancel</button></div>
       </div>
       <ul class="notes companions" id="companionNotes"></ul>
-      <div class="form-grid" style="margin-top:14px">
-        <label>Water rate ($ / 1,000 gal)<input type="number" step="0.25" inputmode="decimal" id="waterRate" value="6"></label>
+      <div class="form-grid adv" style="margin-top:14px">
+        <label>Water rate (<span data-cur>$</span> / 1,000 gal)<input type="number" step="0.25" inputmode="decimal" id="waterRate" value="6"></label>
         <label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
-        <label>One-time setup ($)<input type="number" step="10" inputmode="decimal" id="setupCost" value="0"></label>
+        <label>One-time setup (<span data-cur>$</span>)<input type="number" step="10" inputmode="decimal" id="setupCost" value="0"></label>
         <label>Spread setup over (yrs)<input type="number" step="1" min="1" inputmode="numeric" id="setupYears" value="5"></label>
         <label>Your time (hrs / week per 100 sq ft)<input type="number" step="0.25" min="0" inputmode="decimal" id="laborHrs" value="1"></label>
-        <label>Value your time ($ / hr, optional)<input type="number" step="1" min="0" inputmode="decimal" id="hourlyWage" value="0"></label>
+        <label>Value your time (<span data-cur>$</span> / hr, optional)<input type="number" step="1" min="0" inputmode="decimal" id="hourlyWage" value="0"></label>
         <label class="check"><input type="checkbox" id="organicOnly"> Organic fertilizers only</label>
       </div>
     </div>
     <div class="grid" style="align-content:start">
       <div class="grid g2" id="roiKpis"></div>
-      <div class="card" id="riskCard"><h3>Good year, bad year</h3><div id="riskBody"><p class="small dim" style="margin:0">Replaying your plan through 15 past seasons of local weather…</p></div></div>
-      <div class="card"><h3>Where the money goes</h3><div id="costStack"></div></div>
-      <div class="card"><h3>By bed</h3><div class="table-wrap"><table id="roiTable"></table></div></div>
+      <div class="card adv" id="riskCard"><h2>Good year, bad year</h2><div id="riskBody"><p class="small dim" style="margin:0">Replaying your plan through 15 past seasons of local weather…</p></div></div>
+      <div class="card adv"><h2>Where the money goes</h2><div id="costStack"></div></div>
+      <div class="card adv"><h2>By bed</h2><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="roiTable"></table></div></div>
     </div>
   </div>
   <div class="gap"></div>
-  <div class="card" id="yardCard">
-    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>Yard map</h3>
+  <div class="card adv" id="yardCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h2>Yard map</h2>
       <span class="small dim">Drag beds to where they really are; drag the corner dot to resize. North is up. Tap a bed to see how many plants fit.</span></div>
     <div class="yard-tools">
       <label><span>Yard width (<span data-yard-unit>ft</span>)</span><input type="number" min="4" max="300" step="1" inputmode="numeric" id="yardW"></label>
@@ -224,7 +239,7 @@
   </div>
   <div class="gap"></div>
   <div class="card" id="logCard">
-    <div class="row" style="flex-wrap:wrap"><h3>Harvest log <span class="small dim" style="font-weight:400">optional</span></h3>
+    <div class="row" style="flex-wrap:wrap"><h2>Harvest log <span class="small dim" style="font-weight:400">optional</span></h2>
       <span class="small dim">Log what you pick. When a crop is done, finish its season and the app learns what your yard really produces.</span></div>
     <div class="log-form">
       <select id="logCrop" aria-label="Crop picked"></select>
@@ -233,11 +248,11 @@
     </div>
     <div id="logProgress"></div>
     <div id="logEntries"></div>
-    <div class="log-tools"><button class="btn ghost" id="logCsv">Download log (CSV)</button><button class="btn ghost" id="calReset">Reset calibration</button></div>
+    <div class="log-tools"><button class="btn ghost" id="logCsv">Download log (CSV)</button><button class="btn ghost" id="seasonCsv">Season report for testers</button><button class="btn ghost" id="calReset">Reset calibration</button></div>
   </div>
   <div class="gap"></div>
   <div class="card">
-    <div class="row" style="flex-wrap:wrap"><h3>Your data</h3>
+    <div class="row" style="flex-wrap:wrap"><h2>Your data</h2>
       <span class="small dim">No account and no tracking: your plan, soil test and harvests stay in this browser. Save a backup to move them to another phone.</span></div>
     <div class="log-tools"><button class="btn ghost" id="backupBtn">Save a backup</button>
       <label class="btn ghost file-btn">Restore a backup<input type="file" id="restoreInput" accept=".json,application/json" hidden></label></div>
@@ -259,12 +274,12 @@
   <div class="gap"></div>
   <div class="grid g4" id="waterKpis"></div>
   <div class="gap"></div>
-  <div class="card chart"><h3>Irrigation you'll need beyond rainfall</h3>
+  <div class="card chart"><h2>Irrigation you'll need beyond rainfall</h2>
     <p class="small dim" style="margin:0">From the last three years of local weather: crop water use (evapotranspiration) minus the rain your soil holds onto.</p>
     <div id="waterChart"></div>
   </div>
   <div class="gap"></div>
-  <div class="card"><h3>Rain vs. what plants use</h3><div id="rainChart"></div></div>
+  <div class="card"><h2>Rain vs. what plants use</h2><div id="rainChart"></div></div>
 </section>
 
 <!-- FERTILIZER -->
@@ -272,50 +287,52 @@
   <div class="grid g4" id="fertKpis"></div>
   <div class="gap"></div>
   <div class="grid split">
-    <div class="card"><h3>Cheapest shopping list</h3>
+    <div class="card"><h2>Cheapest shopping list</h2>
       <p class="small dim" style="margin-top:0">Picks whole bags to minimise what you spend at the store, while meeting this plan's nitrogen, phosphorus and potassium needs.</p>
-      <div class="table-wrap"><table id="fertTable"></table></div>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="fertTable"></table></div>
     </div>
-    <div class="card"><h3>Soil fixes</h3><div id="soilFixes"></div></div>
-    <div class="card"><h3>Nutrient balance (lb)</h3><div id="nutrientChart"></div><ul class="notes" id="fertNotes"></ul></div>
+    <div class="card"><h2>Soil fixes</h2><div id="soilFixes"></div></div>
+    <div class="card"><h2>Nutrient balance (lb)</h2><div id="nutrientChart"></div><ul class="notes" id="fertNotes"></ul></div>
   </div>
 </section>
 
 <!-- GUIDE -->
 <section class="tab" id="tab-guide">
   <div class="card">
-    <h3>Something wrong in the garden?</h3>
+    <h2>Something wrong in the garden?</h2>
     <p class="small dim" style="margin:4px 0 10px">Pick what you're seeing. Cheapest fixes come first, and notes about your own soil are added where they matter.</p>
     <div class="problems" id="problemList"></div>
   </div>
   <div class="gap"></div>
   <div class="card">
-    <div class="row" style="flex-wrap:wrap"><h3>Crop guide</h3>
+    <div class="row" style="flex-wrap:wrap"><h2>Crop guide</h2>
       <input type="search" id="guideSearch" placeholder="Search crops" aria-label="Search crops" class="guide-search"></div>
     <div class="guide-grid" id="guideGrid"></div>
   </div>
 </section>
 
+</main>
+
 <footer>
   Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather and forecast, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
   Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.<br>
-  Made by Aaron Haldar. Free and open source: <a href="https://github.com/AaronHal223/EcoAnalytics">code, ideas and fixes welcome on GitHub</a>. · <button class="link" id="tourBtn">Take the tour</button>
+  Made by Aaron Haldar. Free and open source: <a href="https://github.com/AaronHal223/EcoAnalytics">code, ideas and fixes welcome on GitHub</a>. · <button class="link" id="tourBtn">Take the tour</button> · <button class="link" id="viewBtn">Simple view</button> · <button class="link" id="langBtn" translate="no">Español</button>
 </footer>
 </div>
 <dialog id="whySheet" aria-labelledby="whyTitle">
-  <div class="why-head"><div><div class="eyebrow">Where this number comes from</div><h3 id="whyTitle"></h3><div class="num why-sum" id="whySum"></div></div>
+  <div class="why-head"><div><div class="eyebrow">Where this number comes from</div><h2 id="whyTitle"></h2><div class="num why-sum" id="whySum"></div></div>
     <button class="why-close" id="whyClose" aria-label="Close">&times;</button></div>
   <ol class="why-steps" id="whySteps"></ol>
   <p class="small why-caveat" id="whyCaveat" hidden></p>
   <p class="small dim" id="whySources"></p>
 </dialog>
 <dialog id="guideSheet" class="sheet" aria-labelledby="guideTitle">
-  <div class="why-head"><div><div class="eyebrow">Growing guide</div><h3 id="guideTitle"></h3><div class="small dim" id="guideSub"></div></div>
+  <div class="why-head"><div><div class="eyebrow">Growing guide</div><h2 id="guideTitle"></h2><div class="small dim" id="guideSub"></div></div>
     <button class="why-close" id="guideClose" aria-label="Close">&times;</button></div>
   <div id="guideBody"></div>
 </dialog>
 <dialog id="sunSheet" class="sheet" aria-labelledby="sunTitle">
-  <div class="why-head"><div><div class="eyebrow">Sun at this bed</div><h3 id="sunTitle">How much sun does it get?</h3></div>
+  <div class="why-head"><div><div class="eyebrow">Sun at this bed</div><h2 id="sunTitle">How much sun does it get?</h2></div>
     <button class="why-close" id="sunClose" aria-label="Close">&times;</button></div>
   <div class="seg sun-mode" id="sunMode" role="tablist" aria-label="How to measure">
     <button data-mode="scan" role="tab">Scan with camera</button><button data-mode="quick" role="tab">Quick estimate</button>
@@ -328,7 +345,7 @@
       <div class="vf-read num" id="sunRead">Tap Start</div>
     </div>
     <div class="cover" id="sunCover" aria-label="How much of the sky you've swept"></div>
-    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="scanStart">Start</button><button class="btn ghost" id="scanDone" disabled>Done</button></div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="scanStart">Start</button><button class="btn ghost" id="scanDone" disabled>Done</button><button class="btn ghost" id="sunCal">Check compass with the sun</button></div>
     <p class="small dim" id="scanMsg"></p>
   </div>
   <div id="sunQuick" class="sun-pane" hidden>
@@ -339,7 +356,7 @@
   <div id="sunResult"></div>
 </dialog>
 <dialog id="stripSheet" class="sheet" aria-labelledby="stripTitle">
-  <div class="why-head"><div><div class="eyebrow">Soil test reader</div><h3 id="stripTitle">Read a test strip</h3></div>
+  <div class="why-head"><div><div class="eyebrow">Soil test reader</div><h2 id="stripTitle">Read a test strip</h2></div>
     <button class="why-close" id="stripClose" aria-label="Close">&times;</button></div>
   <div class="form-grid">
     <label>What does it test?<select id="stripType"><option value="ph">pH</option><option value="p_ppm">Phosphorus (ppm)</option><option value="k_ppm">Potassium (ppm)</option></select></label>
@@ -357,7 +374,7 @@
 <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <div class="tour-card">
     <div class="eyebrow" id="tourStep"></div>
-    <h3 id="tourTitle"></h3>
+    <h2 id="tourTitle"></h2>
     <div id="tourBody" class="small"></div>
     <div class="tour-dots" id="tourDots"></div>
     <div class="tour-actions"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn" id="tourNext">Next</button></div>

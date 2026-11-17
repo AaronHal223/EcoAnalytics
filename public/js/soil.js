@@ -25,13 +25,14 @@ import { getJSON, postForm, SourceUnavailable } from "./net.js";
 
 const SDA_URL = "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest";
 const SOILGRIDS_URL = "https://rest.isric.org/soilgrids/v2.0/properties/query";
-// Same-origin routes that the host (render.yaml) forwards to the services above.
-// Used only if the browser refuses the direct cross-origin call.
+// Same-origin routes that a self-hosted server (render.yaml) can forward to the services above.
+// Static hosting such as GitHub Pages has no such routes, so they're only tried when the page
+// sets globalThis.ECO_PROXY = true (the old Render deploy did).
 const SDA_PROXY = "proxy/sda";
 const SOILGRIDS_PROXY = "proxy/soilgrids/properties/query";
 
 const mode = { sda: "direct", soilgrids: "direct" };
-const canProxy = () => /^https?:$/.test(globalThis.location?.protocol || "");
+const canProxy = () => globalThis.ECO_PROXY === true && /^https?:$/.test(globalThis.location?.protocol || "");
 
 /** Tries the service directly, then through the host's proxy route; remembers what worked. */
 async function directThenProxy(key, direct, proxied) {

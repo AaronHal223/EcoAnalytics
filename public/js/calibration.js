@@ -75,3 +75,26 @@ export function toCSV(log) {
   return ["date,crop,pounds", ...[...log].sort((a, b) => a.date.localeCompare(b.date))
     .map(e => [e.date, CROP_BY_ID[e.crop]?.name ?? e.crop, e.lb].map(q).join(","))].join("\n") + "\n";
 }
+
+/**
+ * Season report: predicted vs. actual for every crop in the plan this year, plus
+ * the conditions behind the prediction. It's what a beta tester sends back so
+ * yields can be tuned to real gardens. Location is rounded to about 50 km and
+ * nothing identifies the person.
+ */
+export function seasonReport({ plan, log, soil, cl, location, year, factors = {} }) {
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const lat = location ? Math.round(location.lat * 2) / 2 : "", lon = location ? Math.round(location.lon * 2) / 2 : "";
+  const ids = [...new Set(plan.filter(p => p.sqft > 0).map(p => p.crop))].filter(id => CROP_BY_ID[id]);
+  const rows = ids.map(id => {
+    const beds = plan.filter(p => p.crop === id && p.sqft > 0);
+    const sqft = beds.reduce((a, p) => a + p.sqft, 0);
+    const sun = beds.filter(p => Number.isFinite(p.sun)).map(p => p.sun);
+    const predicted = predictedLb(plan, id, soil, cl), actual = loggedLb(log, id, year);
+    return [year, id, CROP_BY_ID[id].name, sqft, sun.length ? r(sun.reduce((a, b) => a + b, 0) / sun.length, 1) : "", predicted, actual,
+      actual > 0 && predicted > 0 ? r(actual / predicted) : "", factors[id] ?? 1, lat, lon, soil?.texture_class ?? "",
+      soil?.values?.ph?.value ?? "", soil?.values?.ph?.source ?? "", cl?.frost_free_days ?? "", cl?.season_gdd50 ?? ""];
+  });
+  const head = "year,crop_id,crop,sqft,sun_hours,predicted_lb,actual_lb,actual_over_predicted,calibration,lat_rounded,lon_rounded,soil_texture,soil_ph,ph_source,frost_free_days,gdd50";
+  return [head, ...rows.map(r0 => r0.map(q).join(","))].join("\n") + "\n";
+}

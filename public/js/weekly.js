@@ -119,7 +119,8 @@ export function weekActions({ days = null, plan = [], cl, calendar, advice = nul
     }
     // First fall frost is coming and tender crops are still in.
     const fall = calendar.frost?.fall;
-    if (fall && fall < 366 && fall - today >= 0 && fall - today <= 14 && tender.length && !out.some(a => a.kind === "frost")) {
+    const until = fall && fall < 730 ? ((((Math.round(fall) - 1) % 365) + 1 - today) + 365) % 365 : null;
+    if (until != null && until <= 14 && tender.length && !out.some(a => a.kind === "frost")) {
       out.push({ kind: "frost", level: "plan", when: null, title: `First frost usually comes around ${dayLabel(fall)}`,
         detail: `Plan to harvest or cover ${list(names(tender))}. Green tomatoes ripen indoors in a paper bag.` });
     }

@@ -19,9 +19,10 @@ export const NEAR_FT = 3;           // beds this close count as neighbours
 export const PER_SQFT = {
   tomato: 0.25, cherry_tomato: 0.25, pepper: 1, zucchini: 0.2, cucumber: 2, bush_bean: 9, sweet_corn: 1, basil: 4,
   lettuce: 4, spinach: 9, kale: 1, chard: 4, snap_pea: 8, carrot: 16, radish: 16, beet: 9, onion: 9, garlic: 9, potato: 1,
+  eggplant: 1, winter_squash: 0.125, pole_bean: 8, sweet_potato: 1, cantaloupe: 0.5, broccoli: 1, cabbage: 1, arugula: 16, cilantro: 9, parsley: 4,
 };
 /** Crops that grow tall enough (staked, caged or trellised) to shade a neighbour. */
-export const TALL = { tomato: 5, cherry_tomato: 5, sweet_corn: 6, snap_pea: 5, cucumber: 5, pepper: 2.5, zucchini: 2.5, kale: 2 };
+export const TALL = { tomato: 5, cherry_tomato: 5, sweet_corn: 6, snap_pea: 5, cucumber: 5, pole_bean: 7, pepper: 2.5, zucchini: 2.5, eggplant: 3, kale: 2, broccoli: 2 };
 
 export function plantCount(cropId, sqft) {
   const per = PER_SQFT[cropId] ?? 1;

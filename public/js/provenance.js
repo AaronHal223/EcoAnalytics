@@ -9,7 +9,7 @@
 import { CROP_BY_ID, IRRIGATION_EFFICIENCY } from "./economics.js";
 import { SUN_NEED } from "./sun.js";
 
-const money = (v, d = 2) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+import { money } from "./currency.js";
 const num = (v, d = 1) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d });
 const CONF = { high: "High", medium: "Medium", low: "Low" };
 
