@@ -1,13 +1,16 @@
 {
   "name": "ecoanalytics",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "private": true,
   "license": "MIT",
   "description": "Soil-first, economics-first analytics for backyard growers. Static website, no build step.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test",
     "start": "npx --yes serve public -l 8000"
-  }
+  },
+  "author": "Aaron Haldar"
 }

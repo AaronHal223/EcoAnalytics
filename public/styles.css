@@ -415,3 +415,78 @@ footer a{color:var(--moss)}
 }
 
 #rankTable td:nth-last-child(2){min-width:170px}
+
+/* ===========================================================================
+   This week, season shift, yard map, strip reader, tour
+   =========================================================================== */
+.week h3{margin:0}
+.week-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.week-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--paper)}
+.week-item strong{display:block;margin-bottom:2px}
+.week-ico{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--moss-soft);color:var(--moss)}
+.week-ico svg{width:19px;height:19px}
+.week-item.urgent{border-color:var(--bad);background:var(--clay-soft)}
+.week-item.urgent .week-ico{background:var(--bad);color:#fff}
+.week-item.do .week-ico{background:var(--wheat-soft);color:var(--warn)}
+.week-item.tip .week-ico{background:var(--moss-soft);color:var(--moss)}
+
+.shift-head{font-weight:600;margin:4px 0 10px}
+.shift-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.shift-cell{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--paper);display:grid;gap:4px}
+.trend-tag{font-size:.7rem;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--moss-soft);color:var(--moss);white-space:nowrap}
+.trend-tag.down{background:var(--clay-soft);color:var(--bad)}
+.trend-tag.maybe{background:var(--wheat-soft);color:var(--warn)}
+.trend-tag.none{background:transparent;color:var(--ink-dim);border:1px solid var(--line)}
+
+.yard-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:10px 0}
+.yard-tools label{display:grid;gap:4px;font-size:.8rem;color:var(--ink-dim);font-weight:600}
+.yard-tools input{width:110px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--paper);color:var(--ink)}
+.yard-wrap{width:100%;max-height:70vh;overflow:auto;border-radius:14px;border:1px solid var(--line);background:var(--paper)}
+#yardSvg .bed,#yardSvg .handle{touch-action:none}
+#yardSvg{display:block;width:100%;height:auto;max-height:68vh;margin:0 auto;user-select:none;-webkit-user-select:none}
+#yardSvg .yard-bg{fill:color-mix(in srgb,var(--moss-soft) 55%,transparent);stroke:var(--sage);stroke-width:.12}
+#yardSvg .grid line{stroke:var(--line);stroke-width:.04}
+#yardSvg .bed{cursor:grab}
+#yardSvg .bed rect{stroke:var(--moss);stroke-width:.1}
+#yardSvg .bed.sel rect{stroke-width:.2;stroke:var(--ink)}
+#yardSvg .bed.flag rect{stroke:var(--bad);stroke-dasharray:.4 .25;stroke-width:.18}
+#yardSvg .bed text{fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:.08;stroke-linejoin:round;font-family:"IBM Plex Sans",sans-serif;font-weight:600;pointer-events:none}
+#yardSvg .bed text.sub{font-weight:400;fill:var(--ink-dim)}
+#yardSvg .sq line{stroke:var(--ink);stroke-opacity:.25;stroke-width:.04;pointer-events:none}
+#yardSvg .dots circle{fill:var(--moss);fill-opacity:.45;pointer-events:none}
+#yardSvg .handle{fill:var(--ink);stroke:var(--paper);stroke-width:.12;cursor:nwse-resize}
+#yardSvg .north path{fill:var(--ink)}
+#yardSvg .north text{fill:var(--ink);font-weight:700}
+.yard-detail{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--moss-soft)}
+.yard-btns{display:flex;gap:8px;margin-left:auto}
+#yardNotes{margin-top:10px}
+#yardNotes:empty{display:none}
+
+.strip-cta{display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+label.btn.file-btn:not(.ghost){background:var(--moss);color:#fff;border:1px solid var(--moss)}
+.strip-stage{margin-top:12px}
+.strip-step{margin:0 0 8px}
+#stripCanvas{display:block;width:100%;height:auto;max-height:55vh;object-fit:contain;border-radius:12px;touch-action:manipulation;cursor:crosshair;background:#222}
+
+.tour{position:fixed;inset:0;z-index:60;background:rgba(10,20,14,.45);display:grid;place-items:center;padding:16px}
+.tour[hidden]{display:none}
+.tour.anchored{align-items:end;background:rgba(10,20,14,.25)}
+.tour-card{width:min(440px,100%);background:var(--card);color:var(--ink);border-radius:20px;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:grid;gap:8px;margin-bottom:calc(env(safe-area-inset-bottom) + 76px)}
+.tour:not(.anchored) .tour-card{margin-bottom:0}
+.tour-card h3{margin:0}
+.tour-card p{margin:0 0 6px}
+.tour-dots{display:flex;gap:6px}
+.tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.tour-dots i.on{background:var(--moss)}
+.tour-actions{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+.tour-focus:not(nav){position:relative}
+.tour-focus{z-index:61;box-shadow:0 0 0 3px var(--leaf),0 0 0 9px rgba(132,204,22,.25)!important;border-radius:16px}
+.why-dot{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--sage);font-style:italic;font-weight:700;font-size:.75rem}
+.tour-units button{padding:7px 12px}
+
+@media (max-width:760px){
+  .shift-grid{grid-template-columns:1fr}
+  .yard-btns{margin-left:0}
+  .yard-tools input{width:90px}
+  .tour.anchored{align-items:end}
+}

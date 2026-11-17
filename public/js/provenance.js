@@ -138,12 +138,12 @@ function explainCrop(id, d) {
   const c = CROP_BY_ID[id], row = d.ranking?.find(x => x.id === id);
   if (!c || !row) return null;
   return { title: c.name, summary: `${money(row.net_per_sqft)} net per sq ft`,
-    steps: [`Harvest value ${money(row.value_per_sqft)} (${num(row.yield_lb_per_sqft, 2)} lb per sq ft at the store price).`,
-      `Minus seeds and plants ${money(row.seed_cost_per_sqft)}.`, `Minus water ${money(row.water_cost_per_sqft, 3)} (${num(row.water_gal_per_sqft)} gal per sq ft).`,
-      `Minus nitrogen ${money(row.fertilizer_cost_per_sqft, 3)}.`, `Equals ${money(row.net_per_sqft)} net per sq ft for one year.`,
+    steps: [`Harvest value ${money(row.value_per_sqft)} per sq ft (${num(row.yield_lb_per_sqft, 2)} lb/sq ft at the store price).`,
+      `Minus seeds and plants ${money(row.seed_cost_per_sqft)} per sq ft.`, `Minus water ${money(row.water_cost_per_sqft, 3)} per sq ft (${num(row.water_gal_per_sqft)} gal/sq ft).`,
+      `Minus nitrogen ${money(row.fertilizer_cost_per_sqft, 3)} per sq ft.`, `Equals ${money(row.net_per_sqft)} net per sq ft for one year.`,
       row.calibration ? `This crop's yield is scaled by ×${row.calibration} from your own harvest log.` : row.note, row.soil_note,
       d.settings?.sunHours != null ? `Sun: ranked for ${num(d.settings.sunHours)} hours of direct sun a day. ${row.sun_fit < 1 ? `It needs about ${SUN_NEED[id]}, so it gives ${Math.round(row.sun_fit * 100)}% of a full crop (yield falls a little faster than the light does).` : "That's enough for a full crop."}` : "Sun: assumes full sun (8+ hours). Pick your yard's sun above the table, or measure each bed on Garden ROI.",
-      d.risk?.[id] ? `Across ${d.risk[id].n} past seasons here: ${money(d.risk[id].bad)} in a bad (1-in-10) year, ${money(d.risk[id].typical)} typical, ${money(d.risk[id].good)} in a good year. It paid its way in ${d.risk[id].positive} of them.` : null],
+      d.risk?.[id] ? `Across ${d.risk[id].n} past seasons here: ${money(d.risk[id].bad)}/sq ft in a bad (1-in-10) year, ${money(d.risk[id].typical)}/sq ft typical, ${money(d.risk[id].good)}/sq ft in a good year. It paid its way in ${d.risk[id].positive} of them.` : null],
     sources: [], caveat: null };
 }
 

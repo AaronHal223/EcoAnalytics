@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EcoAnalytics</title>
-<meta name="description" content="Soil-first, economics-first analytics for backyard growers: your soil, your season, your dollars.">
+<meta name="description" content="Free garden planner that works out your soil, your season, your sun and your dollars. By Aaron Haldar.">
+<meta name="author" content="Aaron Haldar">
 <meta name="theme-color" content="#24563a" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#173322" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
@@ -39,6 +40,8 @@
   <div class="top-actions">
     <button class="icon-btn install" id="installBtn" aria-label="Install app">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg><span class="lbl">Install app</span></button>
+    <button class="icon-btn" id="unitsBtn" aria-label="Switch units" data-units="us">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7h18v10H3z"/><path d="M7 7v4m4-4v6m4-6v4m4-4v6"/></svg><span class="lbl" id="unitsLbl">Units</span></button>
     <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span class="lbl">Theme</span></button>
   </div>
@@ -53,11 +56,11 @@
   </div>
   <div class="vpn" id="vpnBox" hidden></div>
   <div class="loc-form">
-    <input id="addrInput" placeholder="Street address or ZIP code (most accurate)" autocomplete="street-address" inputmode="text">
+    <input id="addrInput" placeholder="Address, town or postcode (most accurate)" autocomplete="street-address" inputmode="text">
     <button class="btn" id="addrBtn">Use this</button>
     <button class="btn ghost" id="gpsBtn">Use device location</button>
   </div>
-  <div class="small dim" id="locHint">Soil is looked up from USDA soil surveys around this point. The more exact the location, the tighter the estimate.</div>
+  <div class="small dim" id="locHint">Soil is looked up from USDA soil surveys (US) or global soil maps (everywhere else) around this point. The more exact the location, the tighter the estimate.</div>
 </div>
 
 <nav class="tabs" role="tablist" aria-label="Sections">
@@ -86,6 +89,11 @@
 
 <!-- SOIL -->
 <section class="tab on" id="tab-soil">
+  <div class="card week" id="weekCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>This week in your garden</h3><span class="small dim" id="weekSub"></span></div>
+    <ol class="week-list" id="weekList"><li class="skeleton" style="height:56px"></li></ol>
+  </div>
+  <div class="gap"></div>
   <div class="grid g4" id="seasonTiles"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
   <div class="gap"></div>
   <div class="grid g3" id="soilCards"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
@@ -110,7 +118,16 @@
         </div>
         <div style="margin-top:10px;display:flex;gap:8px"><button class="btn" id="testApply">Apply test</button><button class="btn ghost" id="testClear">Clear</button></div>
       </details>
+      <div class="strip-cta">
+        <button class="btn ghost" id="stripBtn">Read a test strip with your camera</button>
+        <span class="small dim">Photograph a $10 pH strip or kit next to its colour chart. Read on your phone, never uploaded.</span>
+      </div>
     </div>
+  </div>
+  <div class="gap"></div>
+  <div class="card" id="shiftCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>How your season is changing</h3><span class="small dim" id="shiftSub"></span></div>
+    <div id="shiftBody"><p class="small dim" style="margin:0">Loading 15 years of local weather…</p></div>
   </div>
 </section>
 
@@ -193,6 +210,19 @@
     </div>
   </div>
   <div class="gap"></div>
+  <div class="card" id="yardCard">
+    <div class="row" style="flex-wrap:wrap;gap:6px"><h3>Yard map</h3>
+      <span class="small dim">Drag beds to where they really are; drag the corner dot to resize. North is up. Tap a bed to see how many plants fit.</span></div>
+    <div class="yard-tools">
+      <label><span>Yard width (<span data-yard-unit>ft</span>)</span><input type="number" min="4" max="300" step="1" inputmode="numeric" id="yardW"></label>
+      <label><span>Yard length (<span data-yard-unit>ft</span>)</span><input type="number" min="4" max="300" step="1" inputmode="numeric" id="yardH"></label>
+      <button class="btn ghost" id="yardTidy">Tidy layout</button>
+    </div>
+    <div class="yard-wrap"><svg id="yardSvg" role="img" aria-label="Map of your beds"></svg></div>
+    <div id="yardDetail"></div>
+    <ul class="notes" id="yardNotes"></ul>
+  </div>
+  <div class="gap"></div>
   <div class="card" id="logCard">
     <div class="row" style="flex-wrap:wrap"><h3>Harvest log <span class="small dim" style="font-weight:400">optional</span></h3>
       <span class="small dim">Log what you pick. When a crop is done, finish its season and the app learns what your yard really produces.</span></div>
@@ -269,7 +299,7 @@
 <footer>
   Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather and forecast, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
   Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.<br>
-  Free and open source. <a href="https://github.com/AaronHal223/EcoAnalytics">Code, ideas and fixes welcome on GitHub</a>.
+  Made by Aaron Haldar. Free and open source: <a href="https://github.com/AaronHal223/EcoAnalytics">code, ideas and fixes welcome on GitHub</a>. · <button class="link" id="tourBtn">Take the tour</button>
 </footer>
 </div>
 <dialog id="whySheet" aria-labelledby="whyTitle">
@@ -308,6 +338,31 @@
   </div>
   <div id="sunResult"></div>
 </dialog>
+<dialog id="stripSheet" class="sheet" aria-labelledby="stripTitle">
+  <div class="why-head"><div><div class="eyebrow">Soil test reader</div><h3 id="stripTitle">Read a test strip</h3></div>
+    <button class="why-close" id="stripClose" aria-label="Close">&times;</button></div>
+  <div class="form-grid">
+    <label>What does it test?<select id="stripType"><option value="ph">pH</option><option value="p_ppm">Phosphorus (ppm)</option><option value="k_ppm">Potassium (ppm)</option></select></label>
+    <label>Values printed on the chart<input id="stripValues" inputmode="decimal" placeholder="e.g. 4.5, 5.5, 6.5, 7.5"></label>
+  </div>
+  <p class="small dim" style="margin:8px 0">Put the strip or capsule <strong>next to the colour chart</strong> in good daylight, then take one photo of both.</p>
+  <label class="btn file-btn">Take or choose a photo<input type="file" id="stripFile" accept="image/*" capture="environment" hidden></label>
+  <div class="strip-stage" id="stripStage" hidden>
+    <p class="small strip-step" id="stripStep"></p>
+    <canvas id="stripCanvas"></canvas>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn ghost" id="stripUndo">Undo last tap</button><button class="btn ghost" id="stripRestart">Start over</button></div>
+  </div>
+  <div id="stripResult"></div>
+</dialog>
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+  <div class="tour-card">
+    <div class="eyebrow" id="tourStep"></div>
+    <h3 id="tourTitle"></h3>
+    <div id="tourBody" class="small"></div>
+    <div class="tour-dots" id="tourDots"></div>
+    <div class="tour-actions"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn" id="tourNext">Next</button></div>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="vendor/lp-solver.js"></script>

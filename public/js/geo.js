@@ -17,7 +17,7 @@
 //     (home internet is never hosted in a data centre),
 //   * the device clock's timezone disagrees with the IP's timezone
 //     (a VPN moves the IP, not the laptop's clock),
-//   * the IP is outside the US.
+//   (Connections from outside the US are fine: soil then comes from global maps.)
 
 import { getJSON, SourceUnavailable } from "./net.js";
 
@@ -105,9 +105,6 @@ export function detectVPN(info, browserTimezone) {
   if (browserTimezone && info.timezone && browserTimezone !== info.timezone) {
     reasons.push(`Your device clock is set to ${browserTimezone}, but the connection looks like it's in ${info.timezone}.`);
   }
-  if (info.country && info.country !== "US") {
-    reasons.push("The connection is outside the US; soil and price data here are US-only.");
-  }
   return reasons;
 }
 
@@ -161,11 +158,11 @@ export async function locateByZip(zip) {
 
 export async function locateByAddress(address) {
   const q = String(address || "").trim();
-  if (q.length < 6) throw new Error("Enter a street address with city and state, or a ZIP code.");
+  if (q.length < 3) throw new Error("Enter a street address, a town, or a ZIP or postcode.");
   let hits = [];
   try {
     hits = await getJSON("https://nominatim.openstreetmap.org/search",
-      { q, format: "jsonv2", countrycodes: "us", limit: "1", addressdetails: "1" });
+      { q, format: "jsonv2", limit: "1", addressdetails: "1" });
   } catch { hits = []; }
   if (Array.isArray(hits) && hits.length) {
     const h = hits[0];
@@ -181,7 +178,7 @@ export async function locateByAddress(address) {
   }
   const zm = q.match(/\b(\d{5})(?:-\d{4})?\b/);
   if (zm) return locateByZip(zm[1]);
-  throw new Error("Couldn't find that address. Try adding the city and state, or just a ZIP code.");
+  throw new Error("Couldn't find that place. Try adding the town and country, or a ZIP or postcode.");
 }
 
 export function locateByDevice(lat, lon) {

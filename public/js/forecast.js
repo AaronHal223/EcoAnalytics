@@ -29,20 +29,21 @@ export function bucketInches(texture) {
 
 export function parseForecast(daily) {
   const { time, temperature_2m_max: tmax, temperature_2m_min: tmin, precipitation_sum: pr,
-    precipitation_probability_max: pop, et0_fao_evapotranspiration: et } = daily;
+    precipitation_probability_max: pop, et0_fao_evapotranspiration: et, wind_speed_10m_max: wind } = daily;
   return time.map((date, i) => ({
     date, tmax: tmax[i], tmin: tmin[i],
     rain_in: Math.round((pr[i] || 0) / MM_PER_IN * 100) / 100,
     et0_in: Math.round((et[i] || 0) / MM_PER_IN * 100) / 100,
     pop: pop?.[i] ?? null,
+    wind_mph: wind?.[i] ?? null,
   }));
 }
 
 export async function getForecast(lat, lon) {
   const d = await getJSON(FORECAST_URL, {
     latitude: lat.toFixed(2), longitude: lon.toFixed(2),
-    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,et0_fao_evapotranspiration",
-    temperature_unit: "fahrenheit", precipitation_unit: "mm", timezone: "auto",
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,et0_fao_evapotranspiration,wind_speed_10m_max",
+    temperature_unit: "fahrenheit", precipitation_unit: "mm", wind_speed_unit: "mph", timezone: "auto",
     past_days: PAST_DAYS, forecast_days: FORECAST_DAYS,
   });
   return parseForecast(d.daily);

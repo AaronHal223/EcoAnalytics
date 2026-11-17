@@ -21,18 +21,33 @@ import { sunHours, skylineFromEstimate, skylineFromSamples, cameraDirection, cov
 import { getHistory, cropRisk, planRisk, autoPlan } from "./risk.js";
 import { GUIDE, companionCheck, problemsFor } from "./guide.js";
 import { encodePlan, planFromHash, buildICS, makeBackup, readBackup } from "./share.js";
+import { weekActions } from "./weekly.js";
+import { climateShift } from "./trend.js";
+import { DEFAULT_YARD, layout, placeBed, resizeToArea, yardNotes, plantCount, plantDots, spacingText, PER_SQFT } from "./yard.js";
+import { sampleColor, readStrip, parseValues, STRIP_TYPES, toSoilTest } from "./strip.js";
+import { setMetric, isMetric, defaultMetric, watch as watchUnits, area as areaU, weight as weightU, waterPrice, SQFT_PER_M2, KG_PER_LB, L_PER_GAL } from "./units.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const money = (v, d = 2) => v == null ? "—" : (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmt = (v, d = 1) => v == null ? "—" : Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+// Money per square foot shown on its own (no unit next to it): per m² in metric.
+const perSq = (v, d = 2) => money(v == null ? v : isMetric() ? v * 10.7639 : v, d);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem("eco:" + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem("eco:" + k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
 };
+
+// Units: the user's choice, else what their phone's region uses. Must be set before anything draws.
+{
+  const u = store.get("units", null);
+  setMetric(u === "metric" ? true : u === "us" ? false : defaultMetric());
+  document.documentElement.dataset.unitsys = isMetric() ? "metric" : "us";
+  watchUnits(document.body);
+}
 
 const DEFAULT_PLAN = [{ crop: "tomato", sqft: 16 }, { crop: "lettuce", sqft: 8 }, { crop: "basil", sqft: 4 }, { crop: "pepper", sqft: 4 }];
 
@@ -43,8 +58,12 @@ const asArray = v => Array.isArray(v) ? v : [];
 const asObject = v => v && typeof v === "object" && !Array.isArray(v) ? v : {};
 // A saved plan that is not a list is corrupt: start from the default. A saved empty list is a choice: keep it.
 const savedPlan = store.get("plan", DEFAULT_PLAN);
-const cleanBed = p => ({ crop: p.crop, sqft: Math.max(0, +p.sqft || 0),
-  ...(typeof p.sun === "number" && Number.isFinite(p.sun) ? { sun: Math.max(0, Math.min(16, p.sun)) } : {}) });
+const cleanBed = p => {
+  const pos = ["x", "y", "w", "h"].every(k => typeof p[k] === "number" && Number.isFinite(p[k]) && p[k] >= 0 && p[k] <= 300) && p.w >= 1 && p.h >= 1
+    ? { x: p.x, y: p.y, w: p.w, h: p.h } : {};
+  return { crop: p.crop, sqft: Math.max(0, +p.sqft || 0), ...pos,
+    ...(typeof p.sun === "number" && Number.isFinite(p.sun) ? { sun: Math.max(0, Math.min(16, p.sun)) } : {}) };
+};
 let PLAN = (Array.isArray(savedPlan) ? savedPlan : DEFAULT_PLAN).filter(p => p && CROPS.some(c => c.id === p.crop)).map(cleanBed);
 let LOG = asArray(store.get("harvests", [])).filter(e => e && typeof e === "object" && CROPS.some(c => c.id === e.crop) && typeof e.id === "string"
   && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && Number.isFinite(+e.lb) && +e.lb > 0).map(e => ({ ...e, lb: +e.lb }));
@@ -204,7 +223,9 @@ async function locate(fn, msg) {
 $("#addrBtn").onclick = () => {
   const v = $("#addrInput").value.trim();
   if (!v) return $("#addrInput").focus();
-  locate(/^\d{5}(-\d{4})?$/.test(v) ? () => locateByZip(v.slice(0, 5)) : () => locateByAddress(v), "Looking up that address…");
+  // Five digits is a US ZIP for people in US time zones; elsewhere (France, Germany…) it's a local postcode.
+  const usZone = /^(America|Pacific\/Honolulu|US)\b/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York");
+  locate(usZone && /^\d{5}(-\d{4})?$/.test(v) ? () => locateByZip(v.slice(0, 5)) : () => locateByAddress(v), "Looking up that address…");
 };
 $("#addrInput").onkeydown = e => { if (e.key === "Enter") $("#addrBtn").click(); };
 $("#gpsBtn").onclick = () => {
@@ -279,7 +300,7 @@ function computeRisk() {
 }
 function renderRiskParts() {
   if (!LAST) return;
-  renderRanking(LAST.ranking); renderRisk(); renderGuideGrid();
+  renderRanking(LAST.ranking); renderRisk(); renderGuideGrid(); renderShift();
 }
 
 // 7-day forecast: cached two hours, and any failure just hides the day-by-day card.
@@ -306,7 +327,7 @@ async function loadForecast() {
 
 function settings() {
   return {
-    waterRate: Math.max(0, +$("#waterRate").value || 0),
+    waterRate: Math.max(0, waterPrice.fromShown(+$("#waterRate").value || 0)),
     method: $("#irrigation").value,
     setupCost: Math.max(0, +$("#setupCost").value || 0),
     setupYears: Math.max(1, Math.round(+$("#setupYears").value || 1)),
@@ -348,20 +369,20 @@ function rankSun() {
 let rt;
 const recomputeSoon = () => { markLive(); clearTimeout(rt); rt = setTimeout(recompute, 60); };
 function saveSettings() {
-  store.set("settings", { water: $("#waterRate").value, irr: $("#irrigation").value, setup: $("#setupCost").value, years: $("#setupYears").value, org: $("#organicOnly").checked, labor: $("#laborHrs").value, wage: $("#hourlyWage").value });
+  store.set("settings", { water: String(waterPrice.fromShown(+$("#waterRate").value || 0)), irr: $("#irrigation").value, setup: $("#setupCost").value, years: $("#setupYears").value, org: $("#organicOnly").checked, labor: $("#laborHrs").value, wage: $("#hourlyWage").value });
 }
 ["#waterRate", "#irrigation", "#setupCost", "#setupYears", "#organicOnly", "#laborHrs", "#hourlyWage"].forEach(id =>
   $(id).addEventListener("input", () => { saveSettings(); syncWhatIf(); recomputeSoon(); }));
 
 // Water tab what-if controls mirror the plan settings (one source of truth).
 function syncWhatIf() {
-  const rate = +$("#waterRate").value || 0, s = $("#rateSlider");
+  const rate = waterPrice.fromShown(+$("#waterRate").value || 0), s = $("#rateSlider");
   s.value = Math.min(+s.max, Math.max(+s.min, rate)); setFill(s);
-  $("#rateOut").textContent = `${money(rate)} / 1,000 gal`;
+  $("#rateOut").textContent = isMetric() ? `${money(waterPrice.toShown(rate))} per m³` : `${money(rate)} / 1,000 gal`;
   $$("#methodSeg button").forEach(b => { const on = b.dataset.m === $("#irrigation").value; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
 }
 $("#rateSlider").addEventListener("input", e => {
-  $("#waterRate").value = e.target.value; saveSettings(); syncWhatIf(); recomputeSoon();
+  $("#waterRate").value = waterPrice.toShown(+e.target.value); saveSettings(); syncWhatIf(); recomputeSoon();
 });
 $$("#methodSeg button").forEach(b => (b.onclick = () => {
   $("#irrigation").value = b.dataset.m; saveSettings(); syncWhatIf(); markLive(); recompute();
@@ -386,7 +407,7 @@ function renderPlan() {
   $("#planRows").innerHTML = PLAN.map((p, i) => `
     <div class="plan-row">
       <select data-i="${i}" data-f="crop" aria-label="Crop">${opts}</select>
-      <input type="number" min="1" step="1" inputmode="numeric" data-i="${i}" data-f="sqft" value="${p.sqft}" aria-label="Square feet">
+      <input type="number" min="${isMetric() ? 0.1 : 1}" step="${isMetric() ? 0.1 : 1}" inputmode="decimal" data-i="${i}" data-f="sqft" value="${areaU.toShown(p.sqft)}" aria-label="Bed size in ${areaU.label()}">
       <button data-del="${i}" aria-label="Remove bed">×</button>
     </div>
     <div class="plan-slider"><input type="range" min="1" max="100" step="1" data-i="${i}" data-f="sqft" value="${Math.min(100, p.sqft)}" aria-label="Bed size in square feet">
@@ -397,17 +418,18 @@ function renderPlan() {
   $$("#planRows [data-f]").forEach(el => el.addEventListener("input", () => {
     const i = el.dataset.i;
     if (el.dataset.f === "sqft") {
-      const v = Math.max(0, +el.value || 0);
-      PLAN[i].sqft = v;
+      // The number box shows the user's units; the slider and the plan work in square feet.
+      const v = Math.max(0, el.type === "range" ? +el.value || 0 : Math.round(areaU.fromShown(+el.value || 0) * 10) / 10);
+      PLAN[i] = resizeToArea({ ...PLAN[i], sqft: v });
       // keep the number box and slider for this bed in step
-      $$(`#planRows [data-i="${i}"][data-f="sqft"]`).forEach(o => { if (o !== el) o.value = o.type === "range" ? Math.min(100, v) : v; if (o.type === "range") setFill(o); });
+      $$(`#planRows [data-i="${i}"][data-f="sqft"]`).forEach(o => { if (o !== el) o.value = o.type === "range" ? Math.min(100, v) : areaU.toShown(v); if (o.type === "range") setFill(o); });
       if (el.type === "range") setFill(el);
     } else PLAN[i].crop = el.value;
-    store.set("plan", PLAN); updateArea(); recomputeSoon();
+    store.set("plan", PLAN); updateArea(); renderYard(); recomputeSoon();
   }));
   $$("#planRows [data-del]").forEach(b => (b.onclick = () => { PLAN.splice(+b.dataset.del, 1); store.set("plan", PLAN); renderPlan(); recompute(); }));
   $$("#planRows [data-sun-i]").forEach(b => (b.onclick = () => openSun(+b.dataset.sunI)));
-  updateArea(); renderCompanions();
+  updateArea(); renderCompanions(); renderYard();
 }
 const SUN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 function renderCompanions() {
@@ -415,7 +437,7 @@ function renderCompanions() {
   $("#companionNotes").innerHTML = [...c.bad.map(x => `<li class="status-low">${esc(x.text)}</li>`), ...c.good.slice(0, 3).map(x => `<li>${esc(x.text)}</li>`)].join("");
 }
 function updateArea() { $("#planArea").textContent = `${fmt(PLAN.reduce((a, p) => a + (+p.sqft || 0), 0), 0)} sq ft planted`; }
-$("#addRow").onclick = () => { PLAN.push({ crop: "lettuce", sqft: 8 }); store.set("plan", PLAN); renderPlan(); recompute(); };
+$("#addRow").onclick = () => { PLAN.push({ crop: "lettuce", sqft: 8 }); YARD_SEL = PLAN.length - 1; store.set("plan", PLAN); renderPlan(); recompute(); };
 
 // "Plan it for me" ------------------------------------------------------------------------------
 $("#autoBtn").onclick = () => {
@@ -423,7 +445,7 @@ $("#autoBtn").onclick = () => {
   box.hidden = !open;
   if (open) {
     const area = PLAN.reduce((a, p) => a + (+p.sqft || 0), 0);
-    $("#autoArea").value = area > 0 ? Math.round(area) : 32;
+    $("#autoArea").value = areaU.toShown(area > 0 ? Math.round(area) : 32);
     const sun = rankSun();
     $("#autoSun").value = String(sun == null ? 8 : [8, 6, 4, 2].reduce((a, b) => Math.abs(b - sun) < Math.abs(a - sun) ? b : a));
   }
@@ -431,7 +453,7 @@ $("#autoBtn").onclick = () => {
 $("#autoCancel").onclick = () => ($("#autoBox").hidden = true);
 $("#autoGo").onclick = () => {
   if (!LAST) return toast("Your soil is still being researched. Try again in a moment.");
-  const area = Math.max(4, Math.round(+$("#autoArea").value || 0)), sun = +$("#autoSun").value;
+  const area = Math.max(4, Math.round(areaU.fromShown(+$("#autoArea").value || 0))), sun = +$("#autoSun").value;
   const s = { ...LAST.settings, sunHours: sun };
   const ranking = rankCrops(LAST.soil, LAST.climate, s);
   const risk = HIST ? cropRisk(LAST.soil, HIST.climates, s) : null;
@@ -476,6 +498,7 @@ function renderAll(d) {
   renderSeason(d.climate); renderSoil(d.soil); renderRanking(d.ranking); renderRisk(); renderGuideTab(d);
   renderROI(d.roi, d.emptyPlan); renderWaterKpis(d.roi.water); renderFertText(d.roi.fertilizer, d.soil);
   renderCalendar(d); renderForecast(d); renderLog(d);
+  renderWeek(d); renderShift(); renderYard();
   renderCharts(d);
   countUp($("section.tab.on") || document);
 }
@@ -495,7 +518,7 @@ const tile = (label, value, sub, cls = "", why = "") =>
 function renderSeason(c) {
   $("#seasonTiles").innerHTML =
     tile("Frost-free season", `${c.frost_free_days} days`, c.last_spring_frost ? `${c.last_spring_frost} → ${c.first_fall_frost}` : "No hard frost most years", "", "season:frost") +
-    tile("Growing degree days", fmt(c.season_gdd50, 0), "Heat for warm crops (base 50°F)", "", "season:gdd") +
+    tile("Growing degree days", fmt(c.season_gdd50 * (isMetric() ? 5 / 9 : 1), 0), "Heat for warm crops (base 50°F)", "", "season:gdd") +
     tile("Cool-crop days", `${c.cool_growing_days}`, "Days averaging 40–75°F", "", "season:cool") +
     tile("Yearly rainfall", `${fmt(c.annual_precip_in)} in`, esc(c.source), "", "season:rain");
 }
@@ -550,7 +573,7 @@ function renderRanking(input) {
   const rows = RANK_BY === "safe" && risk ? [...input].sort((a, b) => (risk[b.id]?.bad ?? -1e9) - (risk[a.id]?.bad ?? -1e9)) : input;
   syncRankControls();
   const max = Math.max(...rows.map(r => Math.abs(r.net_per_sqft)), 0.01);
-  const range = r => { const k = risk?.[r.id]; return k ? `${money(k.bad)} to ${money(k.good)}` : (HSTATE === "loading" ? "…" : "—"); };
+  const range = r => { const k = risk?.[r.id]; return k ? `${perSq(k.bad)} to ${perSq(k.good)}` : (HSTATE === "loading" ? "…" : "—"); };
   const odds = r => { const k = risk?.[r.id]; return k ? `${k.positive}/${k.n} yrs` : ""; };
   const sunNote = r => r.sun_fit < 1 ? `<br><span class="status-low">${Math.round(r.sun_fit * 100)}% of a full crop in ${fmt(LAST.settings.sunHours)}h sun (needs ${SUN_NEED[r.id]}h)</span>` : "";
   const nameBtn = r => `<button class="link" data-guide="${r.id}">${esc(r.name)}</button>`;
@@ -561,15 +584,15 @@ function renderRanking(input) {
 
   // Website: full table
   $("#rankTable").innerHTML = `<thead><tr><th>#</th><th>Crop</th><th class="r">Net $/sq ft</th><th class="barcell"></th>
-    <th class="r">Bad → good year</th><th class="r">Harvest value</th><th class="r">lb/sq ft</th><th class="r">Plantings</th><th class="r">Water gal/sq ft</th><th>Fit</th><th></th></tr></thead><tbody>` +
+    <th class="r">Bad → good year</th><th class="r">Harvest value ${isMetric() ? "$/m²" : "$/sq ft"}</th><th class="r">lb/sq ft</th><th class="r">Plantings</th><th class="r">Water gal/sq ft</th><th>Fit</th><th></th></tr></thead><tbody>` +
     rows.map((r, i) => `<tr>
       <td class="dim num">${i < 3 ? `<span class="medal">${i + 1}</span>` : i + 1}</td>
       <td><strong>${nameBtn(r)}</strong> <span class="season-tag ${r.season}">${r.season}</span>${calChip(r)}${whyBtn("crop:" + r.id, "why-inline")}</td>
-      <td class="r num"><strong>${money(r.net_per_sqft)}</strong></td>
+      <td class="r num"><strong>${perSq(r.net_per_sqft)}</strong></td>
       <td class="barcell">${bar(r)}</td>
       <td class="r num small">${range(r)}<div class="dim">${odds(r)}</div></td>
-      <td class="r num">${money(r.value_per_sqft)}</td><td class="r num">${fmt(r.yield_lb_per_sqft, 2)}</td>
-      <td class="r num">${pl(r)}</td><td class="r num">${fmt(r.water_gal_per_sqft)}</td>
+      <td class="r num">${perSq(r.value_per_sqft)}</td><td class="r num">${fmt(r.yield_lb_per_sqft * (isMetric() ? KG_PER_LB * SQFT_PER_M2 : 1), 2)}</td>
+      <td class="r num">${pl(r)}</td><td class="r num">${fmt(r.water_gal_per_sqft * (isMetric() ? L_PER_GAL * SQFT_PER_M2 : 1), isMetric() ? 0 : 1)}</td>
       <td class="small"><span class="dim">${esc(r.note)}</span>${r.soil_fit < 1 ? `<br><span class="status-low">${esc(r.soil_note)}</span>` : ""}${sunNote(r)}</td>
       <td>${action(r)}</td></tr>`).join("") + "</tbody>";
 
@@ -579,7 +602,7 @@ function renderRanking(input) {
       <span><strong>${nameBtn(r)}</strong> <span class="season-tag ${r.season}">${r.season}</span>${calChip(r)}${whyBtn("crop:" + r.id, "why-inline")}</span>
       <span class="num"><strong>${money(r.net_per_sqft)}</strong><span class="dim small">/sq ft</span></span>
       ${bar(r)}
-      <span class="meta">${risk?.[r.id] ? `Bad year ${money(risk[r.id].bad)} · good ${money(risk[r.id].good)} · ` : ""}${money(r.value_per_sqft)} harvest · ${pl(r)} planting${r.plantings > 1 ? "s" : ""} · ${fmt(r.water_gal_per_sqft)} gal/sq ft${r.soil_fit < 1 ? ` · <span class="status-low">${esc(r.soil_note)}</span>` : ""}${r.sun_fit < 1 ? ` · <span class="status-low">${Math.round(r.sun_fit * 100)}% in this sun</span>` : ""}</span>
+      <span class="meta">${risk?.[r.id] ? `Bad year ${perSq(risk[r.id].bad)} · good ${perSq(risk[r.id].good)} · ` : ""}${perSq(r.value_per_sqft)} harvest · ${pl(r)} planting${r.plantings > 1 ? "s" : ""} · ${fmt(r.water_gal_per_sqft)} gal/sq ft${r.soil_fit < 1 ? ` · <span class="status-low">${esc(r.soil_note)}</span>` : ""}${r.sun_fit < 1 ? ` · <span class="status-low">${Math.round(r.sun_fit * 100)}% in this sun</span>` : ""}</span>
       <span class="meta" style="text-align:right">${action(r)}</span>
     </li>`).join("");
   $$("[data-add]").forEach(b => (b.onclick = () => addToPlan(b.dataset.add)));
@@ -614,8 +637,8 @@ function renderROI(r, empty) {
   $("#costStack").innerHTML = `<div class="stack">${parts.map(p => `<div style="width:${p[1] / tot * 100}%;background:${p[2]}" title="${p[0]}"></div>`).join("")}</div>
     <div class="legend">${parts.map(p => `<span><i style="background:${p[2]}"></i>${p[0]} <span class="num">${money(p[1])}</span></span>`).join("")}</div>
     <p class="small dim" style="margin-bottom:0">First trip to the store (plants, bags, setup): <strong class="num">${money(r.upfront_store_cost)}</strong>. Bags last more than one season, so the yearly cost counts only what you use.</p>`;
-  $("#roiTable").innerHTML = `<thead><tr><th>Bed</th><th class="r">Sq ft</th><th class="r">Harvest</th><th class="r">Value</th><th class="r">Plants</th></tr></thead><tbody>` +
-    r.rows.map(x => `<tr><td>${esc(x.crop)}</td><td class="r num">${fmt(x.sqft, 0)}</td><td class="r num">${fmt(x.harvest_lb)} lb</td><td class="r num">${money(x.value)}</td><td class="r num">${money(x.seed_cost)}</td></tr>`).join("") + "</tbody>";
+  $("#roiTable").innerHTML = `<thead><tr><th>Bed</th><th class="r">${isMetric() ? "m²" : "Sq ft"}</th><th class="r">Harvest</th><th class="r">Value</th><th class="r">Plants</th></tr></thead><tbody>` +
+    r.rows.map(x => `<tr><td>${esc(x.crop)}</td><td class="r num">${fmt(areaU.toShown(x.sqft), isMetric() ? 1 : 0)}</td><td class="r num">${fmt(x.harvest_lb)} lb</td><td class="r num">${money(x.value)}</td><td class="r num">${money(x.seed_cost)}</td></tr>`).join("") + "</tbody>";
 }
 
 function renderRisk() {
@@ -734,7 +757,8 @@ function renderForecast(d) {
   const frost = a.frost ? `<div class="banner ${a.frost.level}" role="alert">${esc(a.frost.text)}</div>` : "";
   const cell = day => {
     const cold = day.tmin !== null && day.tmin <= 32 ? " cold" : "";
-    const wx = `<div class="num">${Math.round(day.tmax)}°/${Math.round(day.tmin)}°</div><div class="t">${day.rain_in >= 0.01 ? `${fmt(day.rain_in, 2)} in rain` : "dry"}</div>`;
+    const deg = f => Math.round(isMetric() ? (f - 32) * 5 / 9 : f);
+    const wx = `<div class="num">${deg(day.tmax)}°/${deg(day.tmin)}°</div><div class="t">${day.rain_in >= 0.01 ? `${fmt(day.rain_in, 2)} in rain` : "dry"}</div>`;
     const act = day.action
       ? `<div class="act">${day.action === "water" ? `Water ${fmt(day.inches, 2)} in<br><span class="num">${fmt(day.gallons, 0)} gal · ${money(day.cost)}</span>` : "Skip"}</div>` : "";
     return `<div class="fc-day ${day.action || ""}${cold}" title="${esc(day.reason || "")}"><div class="d">${day.label}</div><div class="t">${day.short}</div>${wx}${act}</div>`;
@@ -781,8 +805,9 @@ function renderLog(d) {
   $("#calReset").disabled = !Object.keys(factors).length;
 }
 function addLog() {
-  const entry = makeEntry({ crop: $("#logCrop").value, lb: $("#logLb").value });
-  if (!entry) return toast("Enter the pounds you picked (more than 0).", { error: true });
+  const raw = $("#logLb").value;
+  const entry = makeEntry({ crop: $("#logCrop").value, lb: raw === "" ? raw : weightU.fromShown(+raw) });
+  if (!entry) return toast(`Enter the ${isMetric() ? "kilograms" : "pounds"} you picked (more than 0).`, { error: true });
   LOG.push(entry); saveLog(); $("#logLb").value = "";
   recompute();
   toast(`Logged ${fmt(entry.lb, 2)} lb of ${CROPS.find(c => c.id === entry.crop).name.toLowerCase()}.`);
@@ -913,7 +938,7 @@ function openGuide(id) {
   $("#guideTitle").textContent = c.name;
   $("#guideSub").textContent = `${c.season === "warm" ? "Warm-season" : "Cool-season"} · ${c.days} days to harvest · needs ${SUN_NEED[id]}h of sun · pH ${c.ph[0]}-${c.ph[1]}`;
   $("#guideBody").innerHTML = `
-    <div class="banner info small"><strong>In your yard:</strong> #${rank} of ${LAST.ranking.length}, ${money(r.net_per_sqft)} net per sq ft${k ? ` (bad year ${money(k.bad)}, good year ${money(k.good)}; paid off ${k.positive} of ${k.n} seasons)` : ""}. ${esc(r.note)}.${cal ? ` ${esc(cal.now.text)}.` : ""}</div>
+    <div class="banner info small"><strong>In your yard:</strong> #${rank} of ${LAST.ranking.length}, ${money(r.net_per_sqft)} net per sq ft${k ? ` (bad year ${perSq(k.bad)}, good year ${perSq(k.good)}; paid off ${k.positive} of ${k.n} seasons)` : ""}. ${esc(r.note)}.${cal ? ` ${esc(cal.now.text)}.` : ""}</div>
     <dl class="guide-dl">
       <dt>Spacing</dt><dd>${esc(g.spacing)}</dd>
       <dt>Watering</dt><dd>${esc(g.water)}</dd>
@@ -1084,6 +1109,313 @@ function renderCover() {
   $("#sunCover").innerHTML = `<div class="cells">${cells.join("")}</div><div class="cover-marks small dim">${marks.map(([n, p]) => `<span style="left:${p}%">${n}</span>`).join("")}</div>`;
 }
 
+// ---- This week in your garden -----------------------------------------------------------------------------------
+const WEEK_ICON = {
+  frost: `<path d="M12 2v20M4.9 6l14.2 12M19.1 6 4.9 18M9 3l3 3 3-3M9 21l3-3 3 3"/>`,
+  heat: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
+  rain: `<path d="M7 15a5 5 0 1 1 9.6-2H17a3.5 3.5 0 0 1 0 7H8a4 4 0 0 1-1-5z"/><path d="M9 21l1-2m4 2 1-2"/>`,
+  wind: `<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>`,
+  water: `<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>`,
+  plant: `<path d="M12 21V10"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-4 3-6 7-6 0 4-3 6-7 6z"/>`,
+  harvest: `<path d="M5 11h14l-1.5 9h-11z"/><path d="M8 11l2-6m6 6-2-6"/>`,
+  start: `<path d="M12 5v14M5 12h14"/>`, calm: `<path d="M5 13l4 4L19 7"/>`,
+};
+function renderWeek(d) {
+  let acts = [];
+  try {
+    acts = weekActions({ days: FORECAST, plan: PLAN.filter(p => p.sqft > 0), cl: d.climate, calendar: d.calendar, advice: d.advice, soil: d.soil, today: localDoy() });
+  } catch { acts = []; }
+  $("#weekSub").textContent = FSTATE === "ok" ? "From the 7-day forecast, your calendar and your beds." : FSTATE === "loading" ? "Checking the forecast…"
+    : FSTATE === "failed" ? "The forecast couldn't be loaded, so weather alerts are missing. Calendar dates still show." : "";
+  $("#weekList").innerHTML = acts.slice(0, 8).map(a => `<li class="week-item ${a.level}">
+    <span class="week-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${WEEK_ICON[a.kind] || WEEK_ICON.calm}</svg></span>
+    <div><strong>${esc(a.title)}</strong><div class="small dim">${esc(a.detail)}</div></div></li>`).join("");
+}
+
+// ---- How your season is changing -----------------------------------------------------------------------------------
+function sparkTrend(m, { invert = false } = {}) {
+  const pts = m.points;
+  if (pts.length < 3) return "";
+  const W = 300, H = 70, pad = 6, xs = pts.map(p => p.year), ys = pts.map(p => p.value).concat([m.from, m.to].filter(Number.isFinite));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), lo = Math.min(...ys), hi = Math.max(...ys), span = (hi - lo) || 1;
+  const X = x => pad + (W - 2 * pad) * (x - x0) / ((x1 - x0) || 1), Y = v => invert ? pad + (H - 2 * pad) * (v - lo) / span : H - pad - (H - 2 * pad) * (v - lo) / span;
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p.year).toFixed(1)},${Y(p.value).toFixed(1)}`).join("");
+  const col = m.strength === "none" ? css("--ink-dim") : m.favourable ? css("--moss") : css("--bad");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(m.label)} by year">
+    <path d="${line}" fill="none" stroke="${css("--line")}" stroke-width="2"/>
+    ${pts.map(p => `<circle cx="${X(p.year).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="2.6" fill="${css("--ink-dim")}"><title>${p.year}</title></circle>`).join("")}
+    ${Number.isFinite(m.from) ? `<line x1="${X(x0)}" y1="${Y(m.from).toFixed(1)}" x2="${X(x1)}" y2="${Y(m.to).toFixed(1)}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>` : ""}</svg>`;
+}
+function renderShift() {
+  const body = $("#shiftBody");
+  if (!body) return;
+  if (HSTATE !== "ok" || !HIST) {
+    $("#shiftSub").textContent = "";
+    body.innerHTML = `<p class="small dim" style="margin:0">${HSTATE === "failed" ? "Past-season weather couldn't be loaded right now." : "Loading 15 years of local weather…"}</p>`;
+    return;
+  }
+  const sh = climateShift(HIST.climates, { gddFactor: isMetric() ? 5 / 9 : 1 });
+  if (!sh) { body.innerHTML = `<p class="small dim" style="margin:0">Not enough past seasons here to see a trend.</p>`; return; }
+  $("#shiftSub").textContent = `${sh.first}-${sh.last}, at your garden`;
+  const tag = m => m.strength === "clear" ? `<span class="trend-tag ${m.favourable ? "up" : "down"}">clear trend</span>` : m.strength === "possible" ? `<span class="trend-tag maybe">possible trend</span>` : `<span class="trend-tag none">steady</span>`;
+  const show = sh.metrics.filter(m => m.points.length >= 3);
+  body.innerHTML = `<p class="shift-head">${esc(sh.headline)}</p>
+    <div class="shift-grid">${show.map(m => `<div class="shift-cell"><div class="row"><span class="eyebrow">${esc(m.label)}</span>${tag(m)}</div>
+      ${sparkTrend(m, { invert: m.key === "last_spring_frost_doy" })}
+      <div class="small dim">${esc(m.text)}${m.from_label && m.strength !== "none" ? ` (trend line: ${m.from_label} → ${m.to_label})` : ""}.</div></div>`).join("")}</div>
+    <div class="eyebrow" style="margin-top:12px">What it means for you</div>
+    <ul class="notes">${sh.ideas.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
+    <p class="small dim" style="margin:6px 0 0">${esc(sh.caveat)}</p>`;
+}
+
+// ---- Yard map ------------------------------------------------------------------------------------------------------------
+let YARD = (() => { const y = asObject(store.get("yard", null)); return { w: Number.isFinite(+y.w) && +y.w >= 4 ? Math.min(300, +y.w) : DEFAULT_YARD.w, h: Number.isFinite(+y.h) && +y.h >= 4 ? Math.min(300, +y.h) : DEFAULT_YARD.h }; })();
+let YARD_SEL = null;
+const ftShown = ft => isMetric() ? Math.round(ft * 0.3048 * 10) / 10 : ft;
+const ftFromShown = v => isMetric() ? +v / 0.3048 : +v;
+function ensureLayout() {
+  const needs = PLAN.some(p => p.sqft > 0 && ![p.x, p.y, p.w, p.h].every(Number.isFinite));
+  if (!needs) return;
+  const res = layout(PLAN, YARD);
+  PLAN = res.plan; YARD = res.yard;
+  store.set("plan", PLAN); store.set("yard", YARD);
+}
+const SEASON_FILL = { warm: "--clay-soft", cool: "--moss-soft" };
+function renderYard() {
+  const svg = $("#yardSvg");
+  if (!svg) return;
+  ensureLayout();
+  if (document.activeElement !== $("#yardW")) $("#yardW").value = ftShown(YARD.w);
+  if (document.activeElement !== $("#yardH")) $("#yardH").value = ftShown(YARD.h);
+  $$("[data-yard-unit]").forEach(s => (s.textContent = isMetric() ? "m" : "ft"));
+  const W = YARD.w, H = YARD.h, step = W * H > 3000 ? 5 : 1;
+  svg.setAttribute("viewBox", `-0.5 -0.5 ${W + 1} ${H + 1}`);
+  svg.style.aspectRatio = `${W + 1} / ${H + 1}`;
+  const lines = [];
+  for (let x = step; x < W; x += step) lines.push(`<line x1="${x}" y1="0" x2="${x}" y2="${H}"/>`);
+  for (let y = step; y < H; y += step) lines.push(`<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`);
+  const notes = yardNotes(PLAN, { southernHemisphere: (LOCATION?.lat ?? 40) < 0 });
+  const flagged = new Set([...notes.warn, ...notes.shade].flatMap(n => n.beds));
+  const fs = Math.max(0.55, Math.min(1.1, Math.min(W, H) / 22));
+  const beds = PLAN.map((p, i) => {
+    if (!(p.sqft > 0) || ![p.x, p.y, p.w, p.h].every(Number.isFinite)) return "";
+    const c = CROPS.find(x => x.id === p.crop), sel = i === YARD_SEL;
+    const label = c.name.replace(/\s*\(.*\)/, "");
+    let inner = "";
+    if (sel) {
+      const sq = [];
+      for (let x = 1; x < p.w; x++) sq.push(`<line x1="${p.x + x}" y1="${p.y}" x2="${p.x + x}" y2="${p.y + p.h}"/>`);
+      for (let y = 1; y < p.h; y++) sq.push(`<line x1="${p.x}" y1="${p.y + y}" x2="${p.x + p.w}" y2="${p.y + y}"/>`);
+      const dots = plantDots(p.crop, p.w, p.h).map(([dx, dy]) => `<circle cx="${p.x + dx}" cy="${p.y + dy}" r="${Math.min(0.32, 0.9 / Math.sqrt(Math.max(1, PER_SQFT[p.crop] || 1)))}"/>`).join("");
+      inner = `<g class="sq">${sq.join("")}</g><g class="dots">${dots}</g><circle class="handle" data-handle="${i}" cx="${p.x + p.w}" cy="${p.y + p.h}" r="${Math.max(0.45, fs * 0.5)}"/>`;
+    }
+    // Shrink the label to fit the bed's width.
+    const bfs = Math.max(0.35, Math.min(fs, (p.w - 0.3) / Math.max(4, label.length * 0.58)));
+    const sub = `${fmt(p.sqft, 0)} sq ft${Number.isFinite(p.sun) ? ` · ${fmt(p.sun)}h sun` : ""}`;
+    const sfs = Math.max(0.3, Math.min(bfs * 0.8, (p.w - 0.3) / Math.max(4, sub.length * 0.55)));
+    const showText = p.h >= bfs * 1.2;
+    return `<g class="bed ${sel ? "sel" : ""} ${flagged.has(i) ? "flag" : ""}" data-bed="${i}">
+      <rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="0.25" fill="${css(SEASON_FILL[c.season])}"/>
+      ${inner}
+      ${showText ? `<text x="${p.x + 0.15}" y="${p.y + bfs * 1.0}" style="font-size:${bfs}px">${esc(label)}</text>
+      ${p.h >= bfs + sfs * 1.6 ? `<text class="sub" x="${p.x + 0.15}" y="${p.y + bfs + sfs * 1.2}" style="font-size:${sfs}px">${sub}</text>` : ""}` : ""}</g>`;
+  }).join("");
+  const na = Math.max(1, fs * 1.4);
+  svg.innerHTML = `<rect class="yard-bg" x="0" y="0" width="${W}" height="${H}" rx="0.4"/><g class="grid">${lines.join("")}</g>${beds}
+    <g class="north" transform="translate(${W - na * 0.9},${na * 1.1})"><path d="M0 ${-na * 0.8} L${na * 0.35} ${na * 0.3} L0 ${na * 0.05} L${-na * 0.35} ${na * 0.3}Z"/><text y="${na * 1.2}" style="font-size:${na * 0.6}px" text-anchor="middle">N</text></g>`;
+  renderYardDetail();
+  $("#yardNotes").innerHTML = [...notes.warn.map(n => `<li class="status-low">${esc(n.text)}</li>`), ...notes.shade.map(n => `<li class="status-low">${esc(n.text)}</li>`), ...notes.good.slice(0, 3).map(n => `<li>${esc(n.text)}</li>`)].join("")
+    || (PLAN.some(p => p.sqft > 0) ? `<li>No neighbour or shade problems in this layout.</li>` : "");
+}
+function renderYardDetail() {
+  const el = $("#yardDetail"), p = PLAN[YARD_SEL];
+  if (!p || !(p.sqft > 0)) { el.innerHTML = PLAN.some(b => b.sqft > 0) ? `<p class="small dim" style="margin:8px 0 0">Tap a bed to see its square-foot grid.</p>` : `<p class="small dim" style="margin:8px 0 0">Add beds in your garden plan above and they appear here.</p>`; return; }
+  const c = CROPS.find(x => x.id === p.crop), n = plantCount(p.crop, p.sqft);
+  const live = PLAN.map((b, i) => [b, i]).filter(([b]) => b.sqft > 0);
+  const row = LAST?.roi?.rows?.[live.findIndex(([, i]) => i === YARD_SEL)];
+  el.innerHTML = `<div class="yard-detail"><strong>${esc(c.name)}</strong>
+    <span class="small">${fmt(p.w, 0)} ft × ${fmt(p.h, 0)} ft = ${fmt(p.sqft, 0)} sq ft · <strong>${n} plant${n === 1 ? "" : "s"}</strong> (${esc(spacingText(p.crop))})${Number.isFinite(p.sun) ? ` · ${fmt(p.sun)} h sun` : ""}${row && !LAST.emptyPlan ? ` · ${money(row.value - row.seed_cost, 0)} harvest after seeds` : ""}</span>
+    <span class="yard-btns"><button class="btn ghost" data-yard-sun="${YARD_SEL}">Measure sun</button><button class="btn ghost" data-guide="${p.crop}">Growing guide</button></span></div>`;
+  const b = $("[data-yard-sun]", el);
+  if (b) b.onclick = () => openSun(+b.dataset.yardSun);
+}
+{
+  const svg = $("#yardSvg");
+  let drag = null;
+  const pt = e => { const m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 }; const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()); return { x: p.x, y: p.y }; };
+  svg.addEventListener("pointerdown", e => {
+    const h = e.target.closest("[data-handle]"), g = e.target.closest("[data-bed]");
+    if (!h && !g) { if (YARD_SEL != null) { YARD_SEL = null; renderYard(); } return; }
+    const i = +(h ? h.dataset.handle : g.dataset.bed), p = PLAN[i], at = pt(e);
+    drag = { i, mode: h ? "size" : "move", start: at, orig: { x: p.x, y: p.y, w: p.w, h: p.h }, moved: false };
+    svg.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  svg.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const at = pt(e), dx = at.x - drag.start.x, dy = at.y - drag.start.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 0.3) return;
+    drag.moved = true;
+    const o = drag.orig;
+    const r = drag.mode === "move" ? { x: o.x + dx, y: o.y + dy, w: o.w, h: o.h } : { x: o.x, y: o.y, w: Math.max(1, o.w + dx), h: Math.max(1, o.h + dy) };
+    PLAN = placeBed(PLAN, drag.i, r, YARD);
+    YARD_SEL = drag.i;
+    renderYard();
+  });
+  const end = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) { YARD_SEL = d.i; renderYard(); return; }
+    store.set("plan", PLAN);
+    if (d.mode === "size") { renderPlan(); recomputeSoon(); } else renderYard();
+  };
+  // On phones, a finger on a bed drags the bed; anywhere else on the map still scrolls the page.
+  svg.addEventListener("touchstart", e => { if (e.target.closest?.("[data-bed],[data-handle]")) e.preventDefault(); }, { passive: false });
+  svg.addEventListener("pointerup", end);
+  svg.addEventListener("pointercancel", end);
+  const setYard = () => {
+    const w = Math.round(ftFromShown($("#yardW").value)), h = Math.round(ftFromShown($("#yardH").value));
+    if (!(w >= 4 && h >= 4)) return;
+    YARD = { w: Math.min(300, w), h: Math.min(300, h) };
+    // Pull beds back inside a smaller yard.
+    PLAN = PLAN.map(p => [p.x, p.y, p.w, p.h].every(Number.isFinite) ? { ...p, x: Math.max(0, Math.min(p.x, YARD.w - Math.min(p.w, YARD.w))), y: Math.max(0, Math.min(p.y, YARD.h - Math.min(p.h, YARD.h))) } : p);
+    store.set("yard", YARD); store.set("plan", PLAN); renderYard();
+  };
+  $("#yardW").addEventListener("change", setYard);
+  $("#yardH").addEventListener("change", setYard);
+  $("#yardTidy").onclick = () => {
+    PLAN = PLAN.map(({ x, y, w, h, ...rest }) => rest);
+    YARD_SEL = null; ensureLayout(); renderPlan(); recomputeSoon();
+  };
+}
+
+// ---- Test-strip reader -------------------------------------------------------------------------------------------------
+const stripSheet = $("#stripSheet");
+const STRIP = { img: null, pad: null, swatches: [], values: [] };
+function openStrip() {
+  const type = $("#stripType").value || "ph";
+  if (!$("#stripValues").value) $("#stripValues").value = STRIP_TYPES[type].values;
+  stripReset();
+  $("#stripStage").hidden = !STRIP.img;
+  openSheet(stripSheet);
+}
+function stripReset() { STRIP.pad = null; STRIP.swatches = []; $("#stripResult").innerHTML = ""; drawStrip(); }
+$("#stripBtn").onclick = openStrip;
+$("#stripClose").onclick = () => closeSheet(stripSheet);
+backdropClose(stripSheet);
+$("#stripType").onchange = () => { $("#stripValues").value = STRIP_TYPES[$("#stripType").value].values; stripReset(); };
+$("#stripValues").addEventListener("change", stripReset);
+$("#stripRestart").onclick = stripReset;
+$("#stripUndo").onclick = () => { if (STRIP.swatches.length) STRIP.swatches.pop(); else STRIP.pad = null; $("#stripResult").innerHTML = ""; drawStrip(); };
+$("#stripFile").addEventListener("change", async e => {
+  const f = e.target.files?.[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    const url = URL.createObjectURL(f);
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("That photo couldn't be opened.")); im.src = url; });
+    const c = $("#stripCanvas"), scale = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+    c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+    const off = document.createElement("canvas"); off.width = c.width; off.height = c.height;
+    const ox = off.getContext("2d", { willReadFrequently: true }); ox.drawImage(img, 0, 0, c.width, c.height);
+    STRIP.img = { canvas: off, data: ox.getImageData(0, 0, c.width, c.height) };
+    URL.revokeObjectURL(url);
+    $("#stripStage").hidden = false;
+    stripReset();
+  } catch (err) { toast(err.message || "That photo couldn't be opened.", { error: true }); }
+});
+function drawStrip() {
+  const c = $("#stripCanvas"), vals = parseValues($("#stripValues").value).sort((a, b) => a - b);
+  STRIP.values = vals;
+  const step = $("#stripStep");
+  if (!STRIP.img) { step.textContent = ""; return; }
+  const ctx = c.getContext("2d");
+  ctx.drawImage(STRIP.img.canvas, 0, 0);
+  const rr = Math.max(8, c.width / 70);
+  const mark = (p, label, color) => {
+    ctx.lineWidth = Math.max(2, rr / 4); ctx.strokeStyle = "#fff"; ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.font = `600 ${Math.round(rr * 1.1)}px sans-serif`; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,.7)";
+    ctx.strokeText(label, p.x + rr * 1.3, p.y + rr * 0.4); ctx.fillText(label, p.x + rr * 1.3, p.y + rr * 0.4);
+  };
+  if (STRIP.pad) mark(STRIP.pad, "test", `rgb(${STRIP.pad.rgb.map(Math.round).join(",")})`);
+  STRIP.swatches.forEach(s => mark(s, String(s.value), `rgb(${s.rgb.map(Math.round).join(",")})`));
+  if (vals.length < 2) { step.innerHTML = "Enter at least two values printed on the chart above."; return; }
+  if (!STRIP.pad) step.innerHTML = "<strong>Step 1:</strong> tap the middle of the test pad or capsule.";
+  else if (STRIP.swatches.length < vals.length) step.innerHTML = `<strong>Step ${STRIP.swatches.length + 2}:</strong> tap the chart colour for <strong>${vals[STRIP.swatches.length]}</strong>.`;
+  else { step.innerHTML = "Done. Here's the reading:"; showStripResult(); }
+}
+$("#stripCanvas").addEventListener("pointerdown", e => {
+  if (!STRIP.img || STRIP.values.length < 2) return;
+  if (STRIP.pad && STRIP.swatches.length >= STRIP.values.length) return;
+  const c = e.currentTarget, rect = c.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * c.width / rect.width, y = (e.clientY - rect.top) * c.height / rect.height;
+  const rgb = sampleColor(STRIP.img.data, x, y, Math.max(3, Math.round(c.width / 150)));
+  if (!STRIP.pad) STRIP.pad = { x, y, rgb };
+  else STRIP.swatches.push({ x, y, rgb, value: STRIP.values[STRIP.swatches.length] });
+  drawStrip();
+});
+function showStripResult() {
+  const type = $("#stripType").value, t = STRIP_TYPES[type];
+  let res;
+  try { res = readStrip(STRIP.pad.rgb, STRIP.swatches); } catch (err) { $("#stripResult").innerHTML = `<p class="small status-low">${esc(err.message)}</p>`; return; }
+  const save = toSoilTest(type, res);
+  const words = { high: "Close match to the chart.", medium: "Reasonable match. Daylight and a sharp photo make it tighter.", low: "The colours don't match the chart well. Retake the photo in daylight, without shadows or flash." }[res.confidence];
+  $("#stripResult").innerHTML = `<div class="sun-result">
+    <div class="row" style="align-items:baseline;gap:6px;flex-wrap:wrap"><div class="big num">${fmt(save[t.field], t.decimals)}</div><div class="small">${esc(t.label)}</div></div>
+    <div class="small ${res.confidence === "low" ? "status-low" : res.confidence === "high" ? "status-ok" : ""}">${esc(words)}${res.at_edge ? " It's at the end of the chart, so the true value may be beyond it." : ""} (Colour difference ${fmt(res.match)}.)</div>
+    <div class="sun-actions"><button class="btn" data-strip-save>Save to my soil test</button></div></div>`;
+  $("[data-strip-save]", stripSheet).onclick = () => {
+    SOILTEST = { ...(SOILTEST || {}), ...save };
+    store.set("soiltest", SOILTEST); fillTest(); markLive(); recompute();
+    closeSheet(stripSheet);
+    toast(`Saved ${t.label} ${fmt(save[t.field], t.decimals)}. Every number in the app now uses it.`);
+  };
+}
+
+// ---- First-run tour -------------------------------------------------------------------------------------------------------
+const TOUR = [
+  { title: "Welcome to EcoAnalytics", body: () => `<p>A free garden planner that works out <strong>your</strong> soil, season, sun and money, then tells you what to grow, when, and what it's worth.</p>
+      <p>Which units do you use?</p><div class="seg tour-units" data-units="us"><button data-u="us" class="${isMetric() ? "" : "on"}">US (°F, lb, sq ft)</button><button data-u="metric" class="${isMetric() ? "on" : ""}">Metric (°C, kg, m²)</button></div>` },
+  { target: "#locBox", title: "Start with where your garden is", body: () => `<p>We guessed from your connection. For the best soil numbers, tap <strong>Change</strong> and enter your address, or use your phone's location.</p>` },
+  { target: "#weekCard", title: "Your week, done for you", body: () => `<p>Frost, heat, storms, watering and planting dates for your actual beds, from the 7-day forecast. Check it once a week.</p>` },
+  { target: "nav.tabs", title: "Everything else is one tap away", body: () => `<p><strong>Crop value</strong> ranks what pays here. <strong>Garden ROI</strong> holds your beds, yard map and good-year/bad-year odds. <strong>Calendar</strong>, <strong>Water</strong> and <strong>Fertilizer</strong> plan the season. <strong>Guide</strong> fixes problems.</p><p>Tap any <span class="why-dot">i</span> to see exactly where a number comes from.</p>` },
+  { title: "Free, private, yours", body: () => `<p>No account, no ads, no tracking. Your plan stays on this phone; save a backup any time from Garden ROI.</p><p>Tip: add it to your home screen to use it like an app.</p>` },
+];
+let TOUR_I = 0;
+function showTour(i) {
+  TOUR_I = i;
+  const s = TOUR[i], box = $("#tour");
+  $$(".tour-focus").forEach(x => x.classList.remove("tour-focus"));
+  $("#tourStep").textContent = `${i + 1} of ${TOUR.length}`;
+  $("#tourTitle").textContent = s.title;
+  $("#tourBody").innerHTML = s.body();
+  $("#tourDots").innerHTML = TOUR.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("");
+  $("#tourNext").textContent = i === TOUR.length - 1 ? "Start growing" : "Next";
+  box.hidden = false;
+  box.classList.toggle("anchored", !!s.target);
+  if (s.target) { const t = $(s.target); if (t) { t.classList.add("tour-focus"); t.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" }); } }
+  $$(".tour-units button").forEach(b => (b.onclick = () => {
+    const metricNow = b.dataset.u === "metric";
+    store.set("units", metricNow ? "metric" : "us");
+    if (metricNow !== isMetric()) { store.set("tour_resume", 1); location.reload(); }
+  }));
+  $("#tourNext").focus({ preventScroll: true });
+}
+function endTour() {
+  $("#tour").hidden = true;
+  $$(".tour-focus").forEach(x => x.classList.remove("tour-focus"));
+  store.set("toured", true);
+}
+$("#tourNext").onclick = () => (TOUR_I >= TOUR.length - 1 ? endTour() : showTour(TOUR_I + 1));
+$("#tourSkip").onclick = endTour;
+$("#tourBtn").onclick = () => { showTab("soil"); showTour(0); };
+addEventListener("keydown", e => { if (e.key === "Escape" && !$("#tour").hidden) endTour(); });
+
+// ---- Units ------------------------------------------------------------------------------------------------------------------------
+$("#unitsLbl").textContent = isMetric() ? "°C · kg" : "°F · lb";
+$("#unitsBtn").onclick = () => { store.set("units", isMetric() ? "us" : "metric"); location.reload(); };
+
 // Simple SVG bar chart, sized to its container ------------------------------------------------------
 function bars(el, labels, series, opts = {}) {
   if (!el.offsetParent) return;  // hidden tab: drawn when shown
@@ -1132,14 +1464,18 @@ function bars(el, labels, series, opts = {}) {
 // ---- Boot ---------------------------------------------------------------------------------------------------
 (async function boot() {
   const s = store.get("settings", null);
+  $("#waterRate").value = waterPrice.toShown(6);   // typical US rate, in the units shown
   if (s) {
-    $("#waterRate").value = s.water; $("#irrigation").value = s.irr; $("#setupCost").value = s.setup; $("#setupYears").value = s.years; $("#organicOnly").checked = s.org;
+    $("#waterRate").value = waterPrice.toShown(+s.water || 0); $("#irrigation").value = s.irr; $("#setupCost").value = s.setup; $("#setupYears").value = s.years; $("#organicOnly").checked = s.org;
     if (s.labor != null) $("#laborHrs").value = s.labor;
     if (s.wage != null) $("#hourlyWage").value = s.wage;
   }
+  $("#logLb").placeholder = isMetric() ? "kg picked" : "lb picked";
   fillTest();
   renderPlan();
   checkSharedPlan();
+  const resume = store.get("tour_resume", 0);
+  if (!store.get("toured", false) || resume) { store.set("tour_resume", 0); setTimeout(() => showTour(resume ? 1 : 0), 600); }
   syncWhatIf();
   const tab = store.get("tab", "soil");
   if ($(`nav.tabs button[data-tab="${tab}"]`)) showTab(tab);
