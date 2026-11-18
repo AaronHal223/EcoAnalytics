@@ -104,10 +104,13 @@ export function upsertDaily(journal, inputs, { now = Date.now(), localize = s =>
 const newId = (kind, now) => `${kind}-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const cleanLines = text => String(text || "").replace(/\r/g, "").split("\n").map(s => s.trimEnd().slice(0, MAX_LINE)).filter((s, i, a) => s || (i > 0 && i < a.length - 1)).slice(0, 60);
 
-export function addNote(journal, { title = "Note", text, date = isoDay(), kind = "note" }, now = Date.now()) {
+export const MOODS = { great: "😄", good: "🙂", okay: "😐", worried: "😟", sad: "😢" };
+
+export function addNote(journal, { title = "Note", text, date = isoDay(), kind = "note", mood = null, shared = null }, now = Date.now()) {
   const lines = cleanLines(text);
-  if (!lines.some(s => s.trim())) return null;
-  const entry = { id: newId(kind, now), date, kind, title: String(title || "Note").slice(0, 120), lines, edited: false, t: now };
+  const m = mood in MOODS ? mood : null;
+  if (!lines.some(s => s.trim()) && !m) return null;
+  const entry = { id: newId(kind, now), date, kind, title: String(title || "Note").slice(0, 120), lines, edited: false, t: now, ...(m ? { mood: m } : {}), ...(shared ? { shared } : {}) };
   return trim([entry, ...(Array.isArray(journal) ? journal : [])]);
 }
 

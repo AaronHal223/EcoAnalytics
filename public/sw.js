@@ -3,7 +3,7 @@
 // the background, so a new deploy shows up on the next visit. Soil and weather
 // lookups go straight to the network (the page caches those results itself).
 
-const CACHE = "eco-shell-v7";
+const CACHE = "eco-shell-v8";
 const DATA = "eco-data";            // alert settings written by the page, and alerts already shown
 importScripts("alerts-core.js");
 const SHELL = [
@@ -12,7 +12,7 @@ const SHELL = [
   "./js/planner.js", "./js/forecast.js", "./js/calibration.js", "./js/provenance.js",
   "./js/sun.js", "./js/risk.js", "./js/guide.js", "./js/share.js",
   "./js/weekly.js", "./js/trend.js", "./js/yard.js", "./js/strip.js", "./js/units.js", "./js/currency.js", "./js/i18n.js", "./js/lang-es.js",
-  "./js/account.js", "./js/journal.js",
+  "./js/account.js", "./js/journal.js", "./js/beginner.js", "./js/lessons.js",
   "./vendor/lp-solver.js", "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
 ];
 

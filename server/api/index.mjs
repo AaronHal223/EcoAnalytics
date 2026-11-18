@@ -3,7 +3,9 @@
 // function has no dependencies and stays tiny.
 import { handle } from "./app.mjs";
 
-const INT = new Set([20, 21, 23]), JSONT = new Set([114, 3802]), BOOL = 16;
+const INT = new Set([20, 21, 23]), JSONT = new Set([114, 3802]), BOOL = 16, TSTZ = 1184;
+/** Postgres text timestamps ("2026-11-17 16:02:00.123456+00") as ISO strings every browser can read. */
+export const isoTime = v => { const d = new Date(String(v).replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00")); return Number.isNaN(+d) ? v : d.toISOString(); };
 
 export function makeDb(url = process.env.DATABASE_URL, fetchFn = fetch) {
   const host = new URL(url.replace(/^postgres(ql)?:/, "https:")).hostname;
@@ -21,6 +23,7 @@ export function makeDb(url = process.env.DATABASE_URL, fetchFn = fetch) {
       if (INT.has(types[k])) return [k, Number(v)];
       if (JSONT.has(types[k])) return [k, JSON.parse(v)];
       if (types[k] === BOOL) return [k, v === "t" || v === "true"];
+      if (types[k] === TSTZ) return [k, isoTime(v)];
       return [k, v];
     })));
   };
@@ -40,6 +43,11 @@ async function selfTest(db) {
   out.badLogin = (await call("/login", { email, password: "wrong-password" })).s;
   out.recover = (await call("/recover", { email, recoveryCode: up.b.recoveryCode, newPassword: "selftest-password2" })).s;
   const tok2 = (await call("/login", { email, password: "selftest-password2" })).b.token;
+  out.name = (await call("/name", { name: "Self Test" }, tok2)).s;
+  const post = await call("/post", { text: "Self-test post, removed straight away", mood: "good" }, tok2); out.post = post.s;
+  out.feed = (await call("/feed", {}, tok2)).b?.posts?.some(p => p.id === post.b?.post?.id) === true;
+  out.like = (await call("/post/like", { id: post.b?.post?.id }, tok2)).b?.likes === 1;
+  out.postDelete = (await call("/post/delete", { id: post.b?.post?.id }, tok2)).s;
   out.delete = (await call("/delete", { password: "selftest-password2" }, tok2)).s;
   out.assistant = !!process.env.GEMINI_API_KEY;
   console.log("SELFTEST " + JSON.stringify(out));

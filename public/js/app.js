@@ -11,7 +11,7 @@ import { locateByIP, locateByZip, locateByAddress, locateByDevice } from "./geo.
 import { researchSoilBase, applySoilTest } from "./soil.js";
 import { getClimate, MONTHS, wrapDoy } from "./climate.js";
 import { CROPS } from "./data.js";
-import { rankCrops, gardenROI } from "./economics.js";
+import { rankCrops, gardenROI, CROP_BY_ID } from "./economics.js";
 import { plantingCalendar, localDoy, describeWindows, dayLabel } from "./planner.js";
 import { getForecast, wateringAdvice } from "./forecast.js";
 import { predictedLb, sqftOf, makeEntry, loggedLb, finishSeason, factorsFromHistory, toCSV } from "./calibration.js";
@@ -31,6 +31,8 @@ import { setLang, lang, defaultLang, watch as watchLang, translateText } from ".
 import { money as fmtMoney, setCurrency, currency, defaultCurrency, fetchRate, toLocal, toUSD, CURRENCIES } from "./currency.js";
 import { session, signIn, signOutHere, syncState, setSync, collect, hasUserData, mergeIn, mergeJournals, applyTo, plan as syncPlan, call as apiCall, errorText } from "./account.js";
 import { isoDay, visible, upsertDaily, addNote, editEntry, deleteEntry, toText, assistantContext } from "./journal.js";
+import { EASY, emoji, plainName, isEasy, SPACES, SUNS, starterPicks, share, plantStatus, todayJobs, SCOOPS, weekKey, greeting, weatherWords } from "./beginner.js";
+import { LESSONS, LESSON_IDS, unlockedCount, currentLesson, lessonText, lessonContext } from "./lessons.js";
 import { setMetric, isMetric, defaultMetric, convertText, watch as watchUnits, area as areaU, weight as weightU, waterPrice, SQFT_PER_M2, KG_PER_LB, L_PER_GAL } from "./units.js";
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -101,7 +103,8 @@ const cleanBed = p => {
   const pos = ["x", "y", "w", "h"].every(k => typeof p[k] === "number" && Number.isFinite(p[k]) && p[k] >= 0 && p[k] <= 300) && p.w >= 1 && p.h >= 1
     ? { x: p.x, y: p.y, w: p.w, h: p.h } : {};
   return { crop: p.crop, sqft: Math.max(0, +p.sqft || 0), ...pos,
-    ...(typeof p.sun === "number" && Number.isFinite(p.sun) ? { sun: Math.max(0, Math.min(16, p.sun)) } : {}) };
+    ...(typeof p.sun === "number" && Number.isFinite(p.sun) ? { sun: Math.max(0, Math.min(16, p.sun)) } : {}),
+    ...(typeof p.planted === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.planted) ? { planted: p.planted } : {}) };
 };
 let PLAN = (Array.isArray(savedPlan) ? savedPlan : DEFAULT_PLAN).filter(p => p && CROPS.some(c => c.id === p.crop)).map(cleanBed);
 let LOG = asArray(store.get("harvests", [])).filter(e => e && typeof e === "object" && CROPS.some(c => c.id === e.crop) && typeof e.id === "string"
@@ -539,7 +542,7 @@ function renderAll(d) {
   renderSeason(d.climate); renderSoil(d.soil); renderRanking(d.ranking); renderRisk(); renderGuideTab(d);
   renderROI(d.roi, d.emptyPlan); renderWaterKpis(d.roi.water); renderFertText(d.roi.fertilizer, d.soil);
   renderCalendar(d); renderForecast(d); renderLog(d);
-  renderWeek(d); renderShift(); renderYard(); renderDaily(d);
+  renderWeek(d); renderShift(); renderYard(); renderDaily(d); renderBeginner();
   if (store.get("alerts", false)) writeAlertConfig(true);
   renderCharts(d);
   countUp($("section.tab.on") || document);
@@ -1206,19 +1209,10 @@ function renderWeek(d) {
     <div><strong>${esc(a.title)}</strong><div class="small dim">${esc(a.detail)}</div></div></li>`).join("");
 }
 
-// ---- Simple view -------------------------------------------------------------------------------------------------------
-// New visitors start with the essentials; everyone can switch with one tap. People who used the app before keep everything.
-let VIEW = store.get("view", null);
-if (VIEW !== "simple" && VIEW !== "full") { VIEW = store.get("toured", false) || store.get("plan", null) ? "full" : "simple"; store.set("view", VIEW); }
-function applyView() {
-  document.documentElement.dataset.view = VIEW;
-  $("#viewBtn").textContent = VIEW === "simple" ? "Show everything" : "Simple view";
-  const cur = $("nav.tabs button.on");
-  if (VIEW === "simple" && cur?.classList.contains("adv")) showTab("soil");
-}
-function setView(v) { VIEW = v; store.set("view", v); applyView(); if (LAST) renderAll(LAST); toast(v === "simple" ? "Simple view: just the essentials." : "Showing everything."); }
-$("#viewBtn").onclick = () => setView(VIEW === "simple" ? "full" : "simple");
-document.addEventListener("click", e => { const b = e.target.closest("button[data-view]"); if (b) setView(b.dataset.view); });
+// ---- View ------------------------------------------------------------------------------------------------------------
+// Advanced mode always shows every tool; Beginner mode (below) replaces the simple view.
+let VIEW = "full";
+function applyView() { document.documentElement.dataset.view = VIEW; }
 applyView();
 
 // ---- Prices where you live -----------------------------------------------------------------------------------------
@@ -1663,11 +1657,24 @@ function renderAccount() {
   $("#acctOut").hidden = !!s;
   $("#acctIn").hidden = !s;
   if (s) { $("#acctWho").textContent = s.email; acctStatus(); }
+  $("#acctLbl").textContent = s ? "Account" : "Sign in";
+  $("#acctBtn").classList.toggle("signed", !!s);
+  $("#acctBtn").setAttribute("aria-label", s ? "Your account (signed in)" : "Sign in or create an account");
+  renderCommunityBox();
 }
+function openAcct(msg) {
+  if (msg) acctMsg(msg);
+  openSheet($("#acctDlg"));
+  setTimeout(() => (AUTH.s ? $("#acctSync") : $("#acctEmail"))?.focus(), 50);
+}
+$("#acctBtn").onclick = () => openAcct();
+$("#acctClose").onclick = () => closeSheet($("#acctDlg"));
+$("#acctDlg").addEventListener("click", e => { if (e.target === e.currentTarget) closeSheet($("#acctDlg")); });
+document.addEventListener("click", e => { if (e.target.closest("[data-open-acct]")) openAcct(); });
 function lostSession(e) {
   if (e?.code !== "signed_out") return false;
-  signOutHere(localStorage); AUTH.s = null; renderAccount();
-  acctMsg(errorText("signed_out"));
+  signOutHere(localStorage); AUTH.s = null; AUTH.name = null; renderAccount();
+  openAcct(errorText("signed_out"));
   return true;
 }
 async function pushNow() {
@@ -1715,6 +1722,7 @@ async function afterSignIn() {
   if (!hasUserData(local) || !differs(local, mergeIn(local, server))) return takeAccountCopy(server, r.updated_at);
   AUTH.pending = r;
   $("#acctChoice").hidden = false;
+  openSheet($("#acctDlg"));
 }
 $("#acctChoice").addEventListener("click", e => {
   const b = e.target.closest("button[data-choice]");
@@ -1740,7 +1748,7 @@ $("#acctCodeCopy").onclick = async () => {
   try { await navigator.clipboard.writeText($("#acctCodeShown").textContent); toast("Recovery code copied. Keep it somewhere safe."); }
   catch { toast("Couldn't copy. Write the code down or take a screenshot.", { error: true }); }
 };
-$("#acctCodeDone").onclick = () => { $("#acctCodeBox").hidden = true; $("#acctCodeShown").textContent = ""; };
+$("#acctCodeDone").onclick = () => { $("#acctCodeBox").hidden = true; $("#acctCodeShown").textContent = ""; if ($("#acctChoice").hidden) closeSheet($("#acctDlg")); };
 
 async function authAction(btn, path, body) {
   if (AUTH.busy) return;
@@ -1752,7 +1760,7 @@ async function authAction(btn, path, body) {
   AUTH.busy = true;
   try {
     const r = await apiCall(path, body);
-    signIn(localStorage, r); AUTH.s = session(localStorage);
+    signIn(localStorage, r); AUTH.s = session(localStorage); AUTH.name = null;
     setSync(localStorage, { server: null, dirty: false });
     $("#acctPw").value = ""; $("#acctNewPw").value = ""; $("#acctCode").value = "";
     $("#acctForgot").open = false;
@@ -1761,6 +1769,8 @@ async function authAction(btn, path, body) {
     showCode(r.recoveryCode);
     acctMsg(path === "/signup" ? "Account made. Your garden is being saved to it." : path === "/recover" ? "Password changed and you're signed in." : "Signed in.", true);
     await afterSignIn();
+    loadMe();
+    if (!r.recoveryCode && $("#acctChoice").hidden) setTimeout(() => closeSheet($("#acctDlg")), 900);
   } catch (e) {
     acctMsg(e.message);
   } finally {
@@ -1781,7 +1791,7 @@ $("#acctLogout").onclick = async () => {
   if (!s) return;
   if (syncState(localStorage).dirty) await pushNow();
   apiCall("/logout", {}, { token: s.token }).catch(() => {});
-  signOutHere(localStorage); AUTH.s = null; renderAccount();
+  signOutHere(localStorage); AUTH.s = null; AUTH.name = null; renderAccount(); FEED = null;
   acctMsg("Signed out. Your garden stays on this phone.", true);
 };
 $("#acctDelete").onclick = async () => {
@@ -1818,6 +1828,7 @@ function dateLabel(iso) {
   catch { return iso; }
 }
 const KIND = { auto: "Written by the app", note: "Your note", chat: "From the garden assistant" };
+const MOOD_FACE = { great: "😄", good: "🙂", okay: "😐", worried: "😟", sad: "😢" };
 function renderJournal() {
   const list = visible(JOURNAL);
   $("#journalList").innerHTML = list.length ? list.slice(0, JOURNAL_SHOWN).map(e => {
@@ -1829,7 +1840,7 @@ function renderJournal() {
         <div class="jtools"><button data-jsave>Save</button><button class="del" data-jcancel>Cancel</button></div></article>`;
     }
     return `<article class="jentry ${esc(e.kind)}" data-id="${esc(e.id)}">
-      <div class="jhead"><strong translate="no" data-units="us">${esc(e.title)}</strong><span class="jdate">${esc(dateLabel(e.date))} · <span>${KIND[e.kind] || ""}</span>${edited ? " · <span>edited</span>" : ""}</span></div>
+      <div class="jhead"><strong translate="no" data-units="us">${e.mood && MOOD_FACE[e.mood] ? `<span class="jmood" role="img" aria-label="${esc(e.mood)}">${MOOD_FACE[e.mood]}</span> ` : ""}${esc(e.title)}</strong><span class="jdate">${esc(dateLabel(e.date))} · <span>${KIND[e.kind] || ""}</span>${edited ? " · <span>edited</span>" : ""}${e.shared ? " · <span>shared</span>" : ""}</span></div>
       <ul translate="no" data-units="us">${e.lines.filter(l => l.trim()).map(l => `<li>${esc(l)}</li>`).join("")}</ul>
       <div class="jtools"><button data-jedit aria-label="Edit this entry">Edit</button><button class="del" data-jdel aria-label="Delete this entry">Delete</button></div></article>`;
   }).join("") : `<p class="journal-empty">Your first daily update appears here once your garden has loaded.</p>`;
@@ -1852,25 +1863,49 @@ $("#journalList").addEventListener("click", e => {
     toast("Entry deleted.");
   }
 });
-function addJournalNote() {
-  const next = addNote(JOURNAL, { title: translateText("Note"), text: $("#noteText").value });
-  if (!next) return toast("Type a note first.", { error: true });
-  $("#noteText").value = "";
+/** Saves a diary entry (with a mood) and, if asked, shares it with the community too. */
+async function saveDiary({ text, mood, share, clear }) {
+  const next = addNote(JOURNAL, { title: translateText(mood ? MOOD_TITLE[mood] : "Note"), text, mood });
+  if (!next) { toast("Pick a face or type a note first.", { error: true }); return false; }
   saveJournal(next);
-  toast("Note added to your journal.");
+  clear?.();
+  if (!share) { toast("Saved to your diary."); return true; }
+  if (!AUTH.s) { openAcct("Saved to your diary. Sign in to share it with other growers."); return true; }
+  try {
+    if (!AUTH.name) await loadMe();
+    if (!AUTH.name) { showPanel("community"); $("#comText").value = text; setMood("community", mood); $("#comMsg").textContent = errorText("need_name"); return true; }
+    const r = await apiCall("/post", { text: text || translateText(MOOD_TITLE[mood]), mood }, { token: AUTH.s.token });
+    JOURNAL = editShared(JOURNAL, next[0].id, r.post.id);
+    store.set("journal", JOURNAL); renderJournal();
+    if (FEED) { FEED.posts.unshift(r.post); renderFeed(); }
+    toast("Saved to your diary and shared with other growers.");
+  } catch (e) { if (!lostSession(e)) toast(e.message, { error: true }); }
+  return true;
 }
-$("#noteAdd").onclick = addJournalNote;
+const editShared = (j, id, postId) => j.map(e => (e.id === id ? { ...e, shared: postId } : e));
+const MOOD_TITLE = { great: "Feeling great", good: "Feeling good", okay: "Feeling okay", worried: "A bit worried", sad: "Not a good day" };
+function moodOf(group) { return $(`[data-mood-group="${group}"] [aria-checked="true"]`)?.dataset.mood || null; }
+function setMood(group, mood) { $$(`[data-mood-group="${group}"] [data-mood]`).forEach(b => b.setAttribute("aria-checked", String(b.dataset.mood === mood))); }
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-mood-group] [data-mood]");
+  if (!b) return;
+  const g = b.closest("[data-mood-group]").dataset.moodGroup, on = b.getAttribute("aria-checked") === "true";
+  setMood(g, on ? null : b.dataset.mood);
+  if (g === "today") { $("#bCheckin").hidden = on; if (!on) $("#bCheckinText").focus(); }
+});
+$("#noteAdd").onclick = () => saveDiary({ text: $("#noteText").value, mood: moodOf("diary"), share: $("#noteShare").checked,
+  clear: () => { $("#noteText").value = ""; setMood("diary", null); $("#noteShare").checked = false; } });
 $("#journalMore").onclick = () => { JOURNAL_SHOWN += 20; renderJournal(); };
 $("#journalTxt").onclick = () => download(`garden-journal-${isoDay()}.txt`, toText(JOURNAL), "text/plain");
 
 // ---- Garden assistant -------------------------------------------------------------------------------------------------
 const CHAT = (() => { try { const c = JSON.parse(sessionStorage.getItem("eco-chat") || "[]"); return Array.isArray(c) ? c.slice(-16) : []; } catch { return []; } })();
 let CHAT_BUSY = false, CHAT_SAVED = false;
-const saveChat = () => { try { sessionStorage.setItem("eco-chat", JSON.stringify(CHAT)); } catch { /* private mode */ } };
+const saveChat = () => { try { sessionStorage.setItem("eco-chat", JSON.stringify(CHAT)); } catch { /* private mode or too big: keep it in memory */ } };
 $("#aiConsent").checked = store.get("aiconsent", false) === true;
 $("#aiConsent").onchange = () => store.set("aiconsent", $("#aiConsent").checked);
 function renderChat(waiting = false) {
-  $("#chatLog").innerHTML = CHAT.map(m => `<div class="bubble ${m.role}" translate="no" data-units="us">${esc(m.text)}</div>`).join("")
+  $("#chatLog").innerHTML = CHAT.map(m => `<div class="bubble ${m.role}" translate="no" data-units="us">${m.photo ? `<img class="bubble-photo" src="${esc(m.photo)}" alt="Your photo">` : ""}${esc(m.text)}</div>`).join("")
     + (waiting ? `<div class="bubble assistant wait">Thinking…</div>` : "");
   const log = $("#chatLog"); log.scrollTop = log.scrollHeight;
   $("#chatSave").disabled = CHAT_BUSY || !CHAT.some(m => m.role === "assistant") || CHAT_SAVED;
@@ -1886,20 +1921,23 @@ function chatContext() {
   });
 }
 function chatReady() {
-  if (!AUTH.s) { $("#chatMsg").textContent = "Sign in or create a free account above to use the assistant."; $("#acctEmail")?.focus(); return false; }
+  if (!AUTH.s) { $("#chatMsg").textContent = "Sign in or create a free account to use the assistant."; openAcct(); return false; }
   if (!$("#aiConsent").checked) { $("#chatMsg").textContent = errorText("consent"); $("#aiConsent").focus(); return false; }
   return true;
 }
 async function sendChat() {
-  const text = $("#chatInput").value.trim();
+  const photo = PHOTO;
+  const text = $("#chatInput").value.trim() || (photo ? translateText("What's wrong with this plant, and what should I do?") : "");
   if (!text || CHAT_BUSY) return;
   if (!chatReady()) return;
-  CHAT.push({ role: "user", text: text.slice(0, 2000) });
+  CHAT.push({ role: "user", text: text.slice(0, 2000), ...(photo ? { photo: photo.thumb } : {}) });
+  clearPhoto();
   $("#chatInput").value = "";
   CHAT_BUSY = true; CHAT_SAVED = false; $("#chatMsg").textContent = "";
   renderChat(true);
   try {
-    const r = await apiCall("/chat", { messages: CHAT.slice(-16), context: chatContext(), consent: true }, { token: AUTH.s.token });
+    const r = await apiCall("/chat", { messages: CHAT.slice(-16).map(({ role, text }) => ({ role, text })), context: chatContext(), consent: true,
+      ...(photo ? { image: { mime: "image/jpeg", data: photo.data } } : {}) }, { token: AUTH.s.token });
     CHAT.push({ role: "assistant", text: String(r.reply || "") });
     while (CHAT.length > 16) CHAT.shift();
     saveChat();
@@ -1907,6 +1945,7 @@ async function sendChat() {
   } catch (e) {
     CHAT.pop();
     $("#chatInput").value = text;
+    if (photo) setPhoto(photo);
     if (e.code === "assistant_off") AUTH.assistant = false;
     if (!lostSession(e)) $("#chatMsg").textContent = e.message;
   } finally { CHAT_BUSY = false; renderChat(); }
@@ -1919,10 +1958,10 @@ $("#chatSave").onclick = async () => {
   CHAT_BUSY = true; renderChat();
   $("#chatMsg").textContent = "Summarizing…";
   try {
-    const r = await apiCall("/summarize", { messages: CHAT.slice(-16), context: chatContext(), consent: true }, { token: AUTH.s.token });
+    const r = await apiCall("/summarize", { messages: CHAT.slice(-16).map(({ role, text }) => ({ role, text })), context: chatContext(), consent: true }, { token: AUTH.s.token });
     const next = addNote(JOURNAL, { kind: "chat", title: r.title || "Garden assistant", text: (r.points || []).join("\n") });
     if (next) { saveJournal(next); CHAT_SAVED = true; }
-    $("#chatMsg").textContent = "Saved to your journal below.";
+    $("#chatMsg").textContent = "Saved to your diary.";
   } catch (e) { if (!lostSession(e)) $("#chatMsg").textContent = e.message; }
   finally { CHAT_BUSY = false; renderChat(); }
 };
@@ -1936,7 +1975,157 @@ async function checkAssistant() {
   } catch { /* offline: say so when they ask */ }
   renderChat();
 }
-$('nav.tabs button[data-tab="journal"]').addEventListener("click", checkAssistant);
+// Photos: shrunk on the phone to about 1024 px before sending, so they upload fast and stay well under the limit.
+let PHOTO = null;
+function shrinkPhoto(file, max = 1024) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const big = c.toDataURL("image/jpeg", 0.8);
+      const t = document.createElement("canvas"), tk = Math.min(1, 240 / Math.max(c.width, c.height));
+      t.width = Math.round(c.width * tk); t.height = Math.round(c.height * tk);
+      t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
+      URL.revokeObjectURL(url);
+      resolve({ data: big.split(",")[1], thumb: t.toDataURL("image/jpeg", 0.7) });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+    img.src = url;
+  });
+}
+function setPhoto(p) { PHOTO = p; $("#chatPhoto").hidden = false; $("#chatPhotoImg").src = p.thumb; }
+function clearPhoto() { PHOTO = null; $("#chatPhoto").hidden = true; $("#chatPhotoImg").removeAttribute("src"); $("#chatFile").value = ""; }
+$("#chatFile").onchange = async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  try { setPhoto(await shrinkPhoto(f)); $("#chatInput").focus(); }
+  catch { toast("That photo couldn't be opened. Try another.", { error: true }); clearPhoto(); }
+};
+$("#chatPhotoX").onclick = clearPhoto;
+
+// ---- Journal panels: My diary, Community, Ask ---------------------------------------------------------------------------
+function showPanel(name) {
+  if (!["diary", "community", "ask"].includes(name)) name = "diary";
+  if (!$("#tab-journal").classList.contains("on")) showTab("journal");
+  $$("#tab-journal .seg [data-panel]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.panel === name)));
+  $$("#tab-journal .panel").forEach(p => (p.hidden = p.id !== "panel-" + name));
+  store.set("panel", name);
+  if (name === "ask") checkAssistant();
+  if (name === "community") loadFeed();
+  markBNav();
+}
+$$("#tab-journal .seg [data-panel]").forEach(b => (b.onclick = () => showPanel(b.dataset.panel)));
+
+// ---- Community ------------------------------------------------------------------------------------------------------------
+let FEED = null, FEED_BUSY = false;
+async function loadMe() {
+  if (!AUTH.s) return;
+  try { const r = await apiCall("/me", {}, { token: AUTH.s.token }); AUTH.name = r.name || null; if (r.assistant != null) AUTH.assistant = !!r.assistant; renderCommunityBox(); }
+  catch (e) { lostSession(e); }
+}
+function renderCommunityBox() {
+  const s = AUTH.s, named = !!AUTH.name;
+  $("#comNeedAcct").hidden = !!s;
+  $("#comNameBox").hidden = !s || (named && !AUTH.renaming);
+  $("#comCompose").hidden = !s || !named || !!AUTH.renaming;
+  $("#comAs").textContent = AUTH.name || "";
+}
+$("#comNameSave").onclick = async () => {
+  try {
+    const r = await apiCall("/name", { name: $("#comName").value }, { token: AUTH.s.token });
+    AUTH.name = r.name; AUTH.renaming = false; $("#comMsg").textContent = ""; renderCommunityBox();
+    if ($("#comText").value.trim()) $("#comText").focus();
+  } catch (e) { if (!lostSession(e)) $("#comMsg").textContent = e.message; }
+};
+$("#comName").onkeydown = e => { if (e.key === "Enter") $("#comNameSave").click(); };
+$("#comRename").onclick = () => { AUTH.renaming = true; $("#comName").value = AUTH.name || ""; renderCommunityBox(); $("#comName").focus(); };
+$("#comPost").onclick = async () => {
+  const text = $("#comText").value.trim(), mood = moodOf("community");
+  if (!text) { $("#comMsg").textContent = "Write something first."; return; }
+  $("#comPost").disabled = true;
+  try {
+    const r = await apiCall("/post", { text, mood }, { token: AUTH.s.token });
+    $("#comText").value = ""; setMood("community", null); $("#comMsg").textContent = "";
+    (FEED ||= { posts: [], more: false }).posts.unshift(r.post); renderFeed();
+    const next = addNote(JOURNAL, { title: translateText("Shared with the community"), text, mood, shared: r.post.id });
+    if (next) saveJournal(next);
+    toast("Posted. It's in your diary too.");
+  } catch (e) { if (!lostSession(e)) $("#comMsg").textContent = e.message; }
+  finally { $("#comPost").disabled = false; }
+};
+const ago = iso => {
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!Number.isFinite(m)) return "";
+  if (m < 1) return translateText("just now");
+  if (m < 60) return translateText(`${m} min ago`);
+  if (m < 1440) return translateText(`${Math.round(m / 60)} h ago`);
+  return new Date(iso).toLocaleDateString(lang() === "es" ? "es" : undefined, { month: "short", day: "numeric" });
+};
+function renderFeed() {
+  const posts = FEED?.posts || [];
+  $("#feed").innerHTML = posts.length ? posts.map(p => `<article class="post" data-id="${esc(p.id)}">
+      <div class="jhead"><strong translate="no">${p.mood && MOOD_FACE[p.mood] ? `<span class="jmood" role="img" aria-label="${esc(p.mood)}">${MOOD_FACE[p.mood]}</span> ` : ""}${esc(p.name)}</strong><span class="jdate"><span translate="no">${esc(ago(p.created_at))}</span>${p.edited ? " · <span>edited</span>" : ""}</span></div>
+      ${POST_EDIT === p.id ? `<textarea data-post-text rows="3" maxlength="1000" aria-label="Edit your post">${esc(p.body)}</textarea>
+        <div class="jtools"><button data-post-save>Save</button><button class="del" data-post-cancel>Cancel</button></div>`
+      : `<p class="post-body" translate="no" data-units="us">${esc(p.body)}</p>
+      <div class="jtools">
+        <button data-post-like aria-pressed="${p.liked ? "true" : "false"}" aria-label="${p.liked ? "Remove your thumbs up" : "Thumbs up"}"><span aria-hidden="true">🌱</span> <span translate="no">${p.likes || ""}</span></button>
+        ${p.mine ? `<button data-post-edit>Edit</button>` : ""}${p.canDelete ? `<button class="del" data-post-del>Delete</button>` : ""}
+        ${p.mine ? "" : `<button class="del" data-post-report>Report</button>`}
+      </div>`}</article>`).join("")
+    : `<p class="journal-empty">${FEED ? "No posts yet. Be the first to share what's growing." : "Loading posts…"}</p>`;
+  $("#feedMore").hidden = !FEED?.more;
+}
+let POST_EDIT = null;
+async function loadFeed(more = false) {
+  if (FEED_BUSY || (FEED && !more && FEED.t && Date.now() - FEED.t < 60000)) { renderFeed(); return; }
+  FEED_BUSY = true;
+  if (!FEED) renderFeed();
+  try {
+    const before = more ? FEED?.posts.at(-1)?.created_at : undefined;
+    const r = await apiCall("/feed", before ? { before } : {}, { token: AUTH.s?.token });
+    const seen = new Set(more ? FEED.posts.map(p => p.id) : []);
+    FEED = { posts: [...(more ? FEED.posts : []), ...r.posts.filter(p => !seen.has(p.id))], more: r.more, t: Date.now() };
+    renderFeed();
+  } catch (e) {
+    if (e.code === "signed_out") lostSession(e);
+    $("#feed").innerHTML = `<p class="journal-empty">${esc(e.message)}</p>`;
+  } finally { FEED_BUSY = false; }
+}
+$("#feedMore").onclick = () => loadFeed(true);
+$("#feedRefresh").onclick = () => { if (FEED) FEED.t = 0; loadFeed(); };
+$("#feed").addEventListener("click", async e => {
+  const art = e.target.closest("article[data-id]");
+  if (!art || !FEED) return;
+  const id = art.dataset.id, post = FEED.posts.find(p => p.id === id);
+  if (!post) return;
+  const need = () => { if (AUTH.s) return false; openAcct("Sign in (free) to react, report or post."); return true; };
+  try {
+    if (e.target.closest("[data-post-like]")) {
+      if (need()) return;
+      const r = await apiCall("/post/like", { id }, { token: AUTH.s.token });
+      post.liked = r.liked; post.likes = r.likes; renderFeed();
+    } else if (e.target.closest("[data-post-edit]")) { POST_EDIT = id; renderFeed(); $("[data-post-text]", art)?.focus(); }
+    else if (e.target.closest("[data-post-cancel]")) { POST_EDIT = null; renderFeed(); }
+    else if (e.target.closest("[data-post-save]")) {
+      const r = await apiCall("/post/edit", { id, text: $("[data-post-text]", art).value }, { token: AUTH.s.token });
+      post.body = r.body; post.edited = true; POST_EDIT = null; renderFeed(); toast("Post updated.");
+    } else if (e.target.closest("[data-post-del]")) {
+      if (!confirm(translateText("Delete this post for everyone?"))) return;
+      await apiCall("/post/delete", { id }, { token: AUTH.s.token });
+      FEED.posts = FEED.posts.filter(p => p.id !== id); renderFeed(); toast("Post deleted.");
+    } else if (e.target.closest("[data-post-report]")) {
+      if (need()) return;
+      if (!confirm(translateText("Report this post as unkind, unsafe or spam?"))) return;
+      const r = await apiCall("/post/report", { id }, { token: AUTH.s.token });
+      if (r.hidden) { FEED.posts = FEED.posts.filter(p => p.id !== id); renderFeed(); }
+      toast("Thanks. Posts reported by three people are hidden.");
+    }
+  } catch (err) { if (!lostSession(err)) toast(err.message, { error: true }); }
+});
 
 renderAccount();
 renderJournal();
@@ -1945,8 +2134,305 @@ renderChat();
   const note = sessionStorage.getItem("eco-note");
   if (note) { sessionStorage.removeItem("eco-note"); setTimeout(() => toast(note), 400); }
 }
-if (store.get("tab", "soil") === "journal") checkAssistant();
+if (AUTH.s) loadMe();
 syncOnOpen();
+
+// ---- Beginner and Advanced modes ------------------------------------------------------------------------------------------
+// Beginner: Today, My Garden, Diary and Ask, in plain words, with a lesson a day.
+// Advanced: every tool. Same data underneath, so switching loses nothing.
+const B_TABS = { today: "today", garden: "garden", diary: "journal", ask: "journal" };
+let MODE = store.get("mode", null);
+if (MODE !== "beginner" && MODE !== "advanced") MODE = store.get("toured", false) || store.get("plan", null) ? "advanced" : null;
+function applyMode() {
+  document.documentElement.dataset.mode = MODE || "advanced";
+  $("#modeBtn").textContent = MODE === "beginner" ? "Switch to Advanced mode" : "Switch to Beginner mode";
+  $$("[data-mode-switch]").forEach(b => (b.textContent = MODE === "beginner" ? "Switch to Advanced mode" : "Switch to Beginner mode"));
+}
+function setMode(m, { quiet = false } = {}) {
+  MODE = m; store.set("mode", m); applyMode();
+  if (m === "beginner") {
+    showB("today");
+    if (!store.get("bsetup", false)) openSetup();
+  } else {
+    if (["today", "garden"].includes(store.get("tab", "soil"))) showTab("soil");
+    else showTab(store.get("tab", "soil"));
+  }
+  if (LAST) renderAll(LAST);
+  if (!quiet) toast(m === "beginner" ? "Beginner mode: just what you need, in plain words." : "Advanced mode: every tool is here.");
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest("[data-mode-switch]")) return;
+  closeSheet($("#acctDlg"));
+  setMode(MODE === "beginner" ? "advanced" : "beginner");
+  scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
+});
+function showB(name) {
+  if (name === "diary" || name === "ask") return showPanel(name);
+  showTab(B_TABS[name] || "today");
+  markBNav();
+}
+function markBNav() {
+  const tab = store.get("tab", "today"), panel = store.get("panel", "diary");
+  const cur = tab === "journal" ? (panel === "ask" ? "ask" : "diary") : tab;
+  $$("nav.btabs button").forEach(b => { const on = b.dataset.btab === cur; b.classList.toggle("on", on); if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+}
+$$("nav.btabs button").forEach(b => (b.onclick = () => showB(b.dataset.btab)));
+$("#modeDlg").addEventListener("cancel", e => e.preventDefault());   // a choice is needed once
+$$("#modeDlg [data-mode]").forEach(b => (b.onclick = () => {
+  closeSheet($("#modeDlg"));
+  const m = b.dataset.mode;
+  if (m === "advanced") { setMode("advanced", { quiet: true }); showTour(0); }
+  else setMode("beginner", { quiet: true });
+}));
+
+// ---- Beginner: first-run setup -------------------------------------------------------------------------------------
+const SETUP = { step: 1, space: store.get("bspace", "bed"), sun: store.get("bsun", "full"), picks: [] };
+function setupStep(n) {
+  SETUP.step = n;
+  $$("#setupDlg .setup-step").forEach(s => (s.hidden = +s.dataset.step !== n));
+  $$("#setupDots i").forEach((d, i) => d.classList.toggle("on", i < n));
+  $("#setupBack").hidden = n === 1;
+  $$("#setupDlg [data-pick] button").forEach(b => b.setAttribute("aria-pressed", String(SETUP[b.closest("[data-pick]").dataset.pick] === b.dataset.v)));
+  if (n === 1) setupWhere();
+  if (n === 4) { if (!SETUP.picks.length) makePicks(); renderPicks(); }
+  $(`#setupDlg .setup-step[data-step="${n}"] button`)?.focus();
+}
+function setupWhere() {
+  $("#setupWhere").innerHTML = LOCATION ? `<span aria-hidden="true">📍</span> <strong translate="no">${esc(placeName() || LOCATION.label || "")}</strong>` : translateText("Finding you…");
+  $("#setupHere").disabled = !LOCATION || !BASE;
+}
+function placeName() { return (LOCATION?.label || "").split(",").map(x => x.trim()).filter(x => x && !/\d/.test(x)).slice(-3, -1).join(", ") || (LOCATION?.label || "").split(",")[0]; }
+function openSetup() { SETUP.picks = []; openSheet($("#setupDlg")); setupStep(1); }
+$("#setupHere").onclick = () => setupStep(2);
+$("#setupGps").onclick = () => $("#gpsBtn").click();
+$("#setupAddrGo").onclick = () => { const v = $("#setupAddr").value.trim(); if (!v) return $("#setupAddr").focus(); $("#addrInput").value = v; $("#addrBtn").click(); };
+$("#setupAddr").onkeydown = e => { if (e.key === "Enter") $("#setupAddrGo").click(); };
+$$("#setupDlg [data-pick] button").forEach(b => (b.onclick = () => {
+  const k = b.closest("[data-pick]").dataset.pick;
+  SETUP[k] = b.dataset.v; store.set(k === "space" ? "bspace" : "bsun", b.dataset.v); SETUP.picks = [];
+  setupStep(SETUP.step + 1);
+}));
+$("#setupBack").onclick = () => setupStep(Math.max(1, SETUP.step - 1));
+$("#setupSkip").onclick = () => { closeSheet($("#setupDlg")); store.set("bsetup", true); showB("today"); };
+function makePicks() {
+  if (!LAST) return;
+  SETUP.picks = starterPicks({ space: SETUP.space, sun: SETUP.sun, calendar: LAST.calendar, ranking: LAST.ranking });
+}
+function plantCard(id, { status = "", extra = "", attrs = "" } = {}) {
+  return `<div class="b-plant" ${attrs}><span class="b-emoji" aria-hidden="true">${emoji(id)}</span><span class="b-name">${esc(plainName(id))}</span>${status}${extra}</div>`;
+}
+function renderPicks() {
+  $("#setupPicks").innerHTML = SETUP.picks.length ? SETUP.picks.map((p, i) => plantCard(p.crop, {
+    status: (st => `<span class="b-chip ${st.kind}">${esc(st.text)}</span>`)(plantStatusOf(p)),
+    extra: `<button class="b-x" data-pick-x="${i}" aria-label="Remove ${esc(plainName(p.crop))}">&times;</button>` })).join("")
+    : `<p class="journal-empty">${LAST ? "Add at least one plant." : "Working out what grows best where you are…"}</p>`;
+  $("#setupGo").disabled = !SETUP.picks.length;
+}
+$("#setupPicks").addEventListener("click", e => {
+  const x = e.target.closest("[data-pick-x]");
+  if (!x) return;
+  const left = SETUP.picks.filter((_, i) => i !== +x.dataset.pickX).map(p => p.crop);
+  SETUP.picks = share(left, (SPACES[SETUP.space] || SPACES.bed).sqft, (SUNS[SETUP.sun] || SUNS.full).hours);
+  renderPicks();
+});
+$("#setupGo").onclick = () => {
+  PLAN = SETUP.picks.map(cleanBed);
+  store.set("plan", PLAN); store.set("bsetup", true);
+  if (!store.get("lessons", null)) store.set("lessons", { started: isoDay(), done: [] });
+  closeSheet($("#setupDlg"));
+  renderPlan(); recompute();
+  showB("today");
+  toast("Your garden is ready. Start with Today's jobs.");
+};
+$("#bRestart").onclick = () => { if (confirm(translateText("Start over with a new starter garden? Your diary and harvests stay."))) openSetup(); };
+$("#bPlaceChange").onclick = () => { openSetup(); };
+const calNow = id => LAST?.calendar?.crops.find(c => c.id === id)?.now;
+
+// ---- Beginner: Today and My Garden --------------------------------------------------------------------------------------
+let DONE = (() => { const d = asObject(store.get("done", {})); return d.week === weekKey() ? d : { week: weekKey(), keys: [] }; })();
+function renderBeginner() {
+  if ($("#setupDlg").open) { if (SETUP.step === 1) setupWhere(); if (SETUP.step === 4 && !SETUP.picks.length) { makePicks(); renderPicks(); } }
+  if (MODE !== "beginner" || !LAST) return;
+  const today = isoDay();
+  $("#bGreet").textContent = translateText(greeting());
+  $("#bPlace").textContent = placeName() || translateText("Your garden");
+  const w = weatherWords((FORECAST || []).find(d => d.date === today), lang());
+  $("#bWeather").textContent = w ? (isMetric() ? convertText(w) : w) : FSTATE === "loading" ? translateText("Checking today's weather…") : "";
+  // Jobs
+  const jobs = todayJobs({ actions: WEEK_ACTS, plan: PLAN, calendar: LAST.calendar, today });
+  const done = new Set(DONE.keys);
+  const sorted = [...jobs.filter(j => !done.has(j.key)), ...jobs.filter(j => done.has(j.key))];
+  $("#bJobs").innerHTML = sorted.length ? sorted.map(j => j.info
+      ? `<li class="b-next"><span aria-hidden="true">${emoji(j.key.slice(2))}</span><span><strong>${esc(j.title)}</strong><span class="small dim"><span>${esc(j.detail)}</span> · <span>Nothing else to do until then.</span></span></span></li>`
+      : `<li class="${done.has(j.key) ? "done" : ""}">
+      <label><input type="checkbox" data-job="${esc(j.key)}" ${done.has(j.key) ? "checked" : ""}><span><strong>${esc(j.title)}</strong>${j.detail ? `<span class="small dim">${esc(j.detail)}</span>` : ""}</span></label></li>`).join("")
+    : `<li class="b-free">${FSTATE === "loading" ? "Checking the weather…" : "Nothing to do today. Enjoy your garden 🌞"}</li>`;
+  renderLesson();
+  // Money
+  const roi = LAST.roi, pickedLb = LOG.filter(e => e.date.startsWith(String(new Date().getFullYear()))).reduce((a, e) => a + e.lb, 0);
+  const pickedVal = LOG.filter(e => e.date.startsWith(String(new Date().getFullYear()))).reduce((a, e) => a + e.lb * (PRICES[e.crop] ?? CROP_BY_ID[e.crop]?.price_per_lb ?? 0), 0);
+  const plants = PLAN.filter(p => p.sqft > 0);
+  $("#bMoney").innerHTML = plants.length && !LAST.emptyPlan
+    ? `<span class="b-big" aria-hidden="true">🧺</span><div><strong>${esc(`Your garden could grow about ${money(roi.harvest_value, 0)} of food in a season`)}</strong><span class="small dim"><span>${esc(`Seeds, water and soil cost about ${money(roi.costs.seeds_and_plants + roi.costs.water + roi.costs.soil_and_fertilizer, 0)}.`)}</span>${pickedLb > 0 ? ` <span>${esc(`So far you've picked ${money(pickedVal, 0)}.`)}</span>` : ""}</span></div>`
+    : `<span class="b-big" aria-hidden="true">🌱</span><div><strong>Add a plant to get started</strong><span class="small dim">Open My Garden and tap Add a plant.</span></div>`;
+  renderGarden();
+}
+$("#bJobs").addEventListener("change", e => {
+  const c = e.target.closest("[data-job]");
+  if (!c) return;
+  const k = c.dataset.job, set = new Set(DONE.keys);
+  if (c.checked) set.add(k); else set.delete(k);
+  DONE = { week: weekKey(), keys: [...set] };
+  store.set("done", DONE);
+  if (c.checked) toast(translateText("Nice work."));
+  renderBeginner();
+});
+function plantStatusOf(p) { return plantStatus(p, LAST?.calendar?.crops.find(c => c.id === p.crop), isoDay()); }
+function renderGarden() {
+  const plants = PLAN.map((p, i) => ({ p, i })).filter(x => x.p.sqft > 0);
+  const area = plants.reduce((a, x) => a + x.p.sqft, 0);
+  $("#bGardenSub").textContent = plants.length ? `${plants.length} ${plants.length === 1 ? "plant" : "plants"} · ${area} sq ft` : "";
+  $("#bPlants").innerHTML = plants.length ? plants.map(({ p, i }) => {
+    const st = plantStatusOf(p);
+    return `<button class="b-plant tap" data-plant="${i}" aria-label="${esc(plainName(p.crop))}: ${esc(st.text)}"><span class="b-emoji" aria-hidden="true">${emoji(p.crop)}</span><span class="b-name">${esc(plainName(p.crop))}</span><span class="b-chip ${st.kind}">${esc(st.text)}</span></button>`;
+  }).join("") : `<p class="journal-empty">No plants yet. Tap Add a plant.</p>`;
+  const year = String(new Date().getFullYear()), mine = LOG.filter(e => e.date.startsWith(year));
+  const lb = mine.reduce((a, e) => a + e.lb, 0), val = mine.reduce((a, e) => a + e.lb * (PRICES[e.crop] ?? CROP_BY_ID[e.crop]?.price_per_lb ?? 0), 0);
+  $("#bPicked").innerHTML = lb > 0
+    ? `<span class="b-big" aria-hidden="true">🧺</span><div><strong>${esc(`You've picked ${r1(lb)} lb this year, worth ${money(val, 0)} at the store`)}</strong><span class="small dim">Tap a plant and press Picked some to add more.</span></div>`
+    : `<span class="b-big" aria-hidden="true">🧺</span><div><strong>Nothing picked yet this year</strong><span class="small dim">When you pick something, tap the plant and press Picked some.</span></div>`;
+}
+const r1 = v => Math.round(v * 10) / 10;
+$("#bPlants").addEventListener("click", e => { const b = e.target.closest("[data-plant]"); if (b) openPlant(+b.dataset.plant); });
+let PLANT_I = null;
+function openPlant(i) {
+  const p = PLAN[i];
+  if (!p) return;
+  PLANT_I = i;
+  const c = CROP_BY_ID[p.crop], g = GUIDE[p.crop] || {}, st = plantStatusOf(p), need = SUN_NEED[p.crop] ?? 6;
+  $("#plantEasy").textContent = translateText(isEasy(p.crop) ? "Easy to grow" : "A little harder");
+  $("#plantTitle").innerHTML = `<span aria-hidden="true">${emoji(p.crop)}</span> ${esc(plainName(p.crop))}`;
+  $("#plantStatus").innerHTML = `<span class="b-chip ${st.kind}">${esc(st.text)}</span>`;
+  const row = (ico, label, text) => text ? `<div class="b-fact"><span aria-hidden="true">${ico}</span><div><strong>${esc(label)}</strong><span translate="no">${esc(text)}</span></div></div>` : "";
+  const cal = LAST?.calendar?.crops.find(x => x.id === p.crop);
+  const when = cal ? describeWindows(cal) : "";
+  $("#plantBody").innerHTML = `
+    <div class="btn-row">
+      ${p.planted ? `<button class="btn ghost" data-pact="unplant">I haven't planted it</button>` : `<button class="btn" data-pact="planted">I planted it today</button>`}
+    </div>
+    <div class="b-pick"><strong>Picked some?</strong>
+      <div class="btn-row"><button class="btn ghost" data-scoop="handful">A handful</button><button class="btn ghost" data-scoop="bowl">A bowlful</button><button class="btn ghost" data-scoop="basket">A basketful</button></div></div>
+    <div class="b-facts">
+      ${row("📅", translateText("When"), when)}
+      ${row("☀️", translateText("Sunlight"), `${need}+ hours of direct sun a day`)}
+      ${row("💧", translateText("Water"), g.water)}
+      ${row("📏", translateText("Spacing"), g.spacing)}
+      ${row("🧺", translateText("Ready when"), g.ready)}
+      ${row("🥡", translateText("Keeping it"), g.store)}
+      ${(g.pests || []).slice(0, 3).map(([n, sign, fix]) => row("🐛", n, `${sign}. ${fix}`)).join("")}
+    </div>
+    ${lang() === "es" ? `<p class="small dim">Los detalles de cultivo están en inglés.</p>` : ""}
+    <div class="btn-row"><button class="btn ghost" data-pact="ask">Ask about ${esc(plainName(p.crop).toLowerCase())}</button><button class="link" data-pact="remove">Remove from my garden</button></div>`;
+  openSheet($("#plantDlg"));
+}
+$("#plantClose").onclick = () => closeSheet($("#plantDlg"));
+$("#plantDlg").addEventListener("click", e => {
+  if (e.target === e.currentTarget) return closeSheet($("#plantDlg"));
+  const p = PLAN[PLANT_I];
+  if (!p) return;
+  const scoop = e.target.closest("[data-scoop]")?.dataset.scoop;
+  const act = e.target.closest("[data-pact]")?.dataset.pact;
+  if (scoop) {
+    const entry = makeEntry({ crop: p.crop, lb: SCOOPS[scoop] });
+    if (entry) { LOG.push(entry); saveLog(); renderLog(LAST); toast(translateText(`Logged ${scoop === "handful" ? "a handful" : scoop === "bowl" ? "a bowlful" : "a basketful"}. Keep picking!`)); renderBeginner(); }
+    return;
+  }
+  if (act === "planted") { p.planted = isoDay(); store.set("plan", PLAN); toast("Great! We'll tell you when it's ready."); }
+  else if (act === "unplant") { delete p.planted; store.set("plan", PLAN); }
+  else if (act === "remove") {
+    if (!confirm(translateText("Remove this plant from your garden?"))) return;
+    PLAN.splice(PLANT_I, 1); store.set("plan", PLAN); closeSheet($("#plantDlg")); renderPlan(); recompute(); return;
+  } else if (act === "ask") {
+    closeSheet($("#plantDlg")); showB("ask"); $("#chatInput").value = translateText(`How do I grow ${plainName(p.crop).toLowerCase()} well here?`); $("#chatInput").focus(); return;
+  } else return;
+  renderBeginner(); openPlant(PLANT_I);
+});
+$("#bAddPlant").onclick = () => {
+  const have = new Set(PLAN.filter(p => p.sqft > 0).map(p => p.crop));
+  const ids = [...EASY, ...CROPS.map(c => c.id).filter(id => !EASY.includes(id))].filter(id => !have.has(id));
+  $("#addPlantList").innerHTML = ids.map(id => {
+    const now = calNow(id);
+    return `<button class="b-plant tap" data-add="${id}"><span class="b-emoji" aria-hidden="true">${emoji(id)}</span><span class="b-name">${esc(plainName(id))}</span>
+      ${(st => `<span class="b-chip ${st.kind}">${esc(st.text)}</span>`)(plantStatusOf({ crop: id, sqft: 1 }))}${isEasy(id) ? `<span class="b-easy">Easy</span>` : ""}</button>`;
+  }).join("");
+  openSheet($("#addPlantDlg"));
+};
+$("#addPlantClose").onclick = () => closeSheet($("#addPlantDlg"));
+$("#addPlantDlg").addEventListener("click", e => {
+  if (e.target === e.currentTarget) return closeSheet($("#addPlantDlg"));
+  const b = e.target.closest("[data-add]");
+  if (!b) return;
+  const id = b.dataset.add, sun = (SUNS[store.get("bsun", "full")] || SUNS.full).hours;
+  PLAN.push({ crop: id, sqft: id === "zucchini" || id === "winter_squash" ? 9 : 4, sun });
+  store.set("plan", PLAN);
+  closeSheet($("#addPlantDlg"));
+  renderPlan(); recompute();
+  toast(translateText(`Added ${plainName(id).toLowerCase()}.`));
+});
+
+// ---- Beginner: a lesson a day ------------------------------------------------------------------------------------------
+function lessonProgress() {
+  const p = asObject(store.get("lessons", null));
+  return { started: typeof p.started === "string" ? p.started : null, done: Array.isArray(p.done) ? p.done.filter(id => LESSON_IDS.includes(id)) : [] };
+}
+function lessonCtx() {
+  return lessonContext({ place: placeName(), climate: LAST?.climate, soil: LAST?.soil, sunHours: PLAN.find(p => Number.isFinite(p.sun))?.sun ?? (SUNS[store.get("bsun", "full")] || SUNS.full).hours });
+}
+function renderLesson() {
+  let prog = lessonProgress();
+  if (!prog.started) { prog = { ...prog, started: isoDay() }; store.set("lessons", prog); }
+  const cur = currentLesson(prog);
+  const L = lang();
+  $("#bLessonNo").textContent = translateText(`Lesson ${Math.min(LESSONS.length, cur.done + 1)} of ${LESSONS.length}`);
+  if (cur.lesson) {
+    const t = lessonText(cur.lesson, lessonCtx(), L);
+    $("#bLessonTitle").textContent = t.title;
+    $("#bLessonBody").textContent = t.body;
+    $("#bLessonTry").textContent = t.try ? (L === "es" ? "Prueba: " : "Try this: ") + t.try : "";
+    $("#bLessonDone").hidden = false;
+    $("#bLessonAdv").hidden = !cur.lesson.advanced;
+    $("#bLessonDone").dataset.id = cur.lesson.id;
+  } else {
+    $("#bLessonNo").textContent = translateText(cur.finished ? "Lessons" : "Today's lesson");
+    $("#bLessonTitle").textContent = L === "es" ? (cur.finished ? "¡Terminaste todas las lecciones!" : "Hecho por hoy") : (cur.finished ? "You finished every lesson!" : "Done for today");
+    $("#bLessonBody").textContent = L === "es" ? (cur.finished ? "Ya sabes lo básico. Vuelve a leerlas cuando quieras, o prueba el modo Avanzado." : "Mañana se abre una lección nueva.") : (cur.finished ? "You know the basics. Re-read them any time, or try Advanced mode." : "A new lesson opens tomorrow.");
+    $("#bLessonTry").textContent = "";
+    $("#bLessonDone").hidden = true;
+    $("#bLessonAdv").hidden = !cur.finished;
+  }
+}
+$("#bLessonDone").onclick = () => {
+  const p = lessonProgress(), id = $("#bLessonDone").dataset.id;
+  if (id && !p.done.includes(id)) p.done.push(id);
+  store.set("lessons", p);
+  renderLesson();
+  toast(translateText("Lesson done. 🌱"));
+};
+$("#bLessonAdv").onclick = () => setMode("advanced");
+$("#bLessonsAll").onclick = () => {
+  const p = lessonProgress(), open = unlockedCount(p.started), done = new Set(p.done), L = lang(), ctx = lessonCtx();
+  $("#lessonList").innerHTML = LESSONS.map((l, i) => {
+    const t = lessonText(l, ctx, L);
+    if (i >= open) return `<li class="locked"><strong translate="no">${esc(t.title)}</strong><span class="small dim">${L === "es" ? `Se abre en ${i - open + 1} ${i - open + 1 === 1 ? "día" : "días"}` : `Opens in ${i - open + 1} ${i - open + 1 === 1 ? "day" : "days"}`}</span></li>`;
+    return `<li class="${done.has(l.id) ? "done" : ""}"><details><summary translate="no">${done.has(l.id) ? "✓ " : ""}${esc(t.title)}</summary><p translate="no">${esc(t.body)}</p>${t.try ? `<p class="b-try" translate="no">${esc(t.try)}</p>` : ""}</details></li>`;
+  }).join("");
+  openSheet($("#lessonsDlg"));
+};
+$("#lessonsClose").onclick = () => closeSheet($("#lessonsDlg"));
+$("#lessonsDlg").addEventListener("click", e => { if (e.target === e.currentTarget) closeSheet($("#lessonsDlg")); });
+$("#bCheckinSave").onclick = () => saveDiary({ text: $("#bCheckinText").value, mood: moodOf("today"), share: $("#bCheckinShare").checked,
+  clear: () => { $("#bCheckinText").value = ""; setMood("today", null); $("#bCheckinShare").checked = false; $("#bCheckin").hidden = true; } });
+applyMode();
 
 // ---- Boot ---------------------------------------------------------------------------------------------------
 (async function boot() {
@@ -1962,10 +2448,14 @@ syncOnOpen();
   renderPlan();
   checkSharedPlan();
   const resume = store.get("tour_resume", 0);
-  if (!store.get("toured", false) || resume) { store.set("tour_resume", 0); setTimeout(() => showTour(resume ? 1 : 0), 600); }
+  if (!MODE) setTimeout(() => openSheet($("#modeDlg")), 300);
+  else if (MODE === "advanced" && (!store.get("toured", false) || resume)) { store.set("tour_resume", 0); setTimeout(() => showTour(resume ? 1 : 0), 600); }
+  else if (MODE === "beginner" && !store.get("bsetup", false)) setTimeout(openSetup, 300);
+  if (MODE === "beginner") store.set("tab", ["today", "garden", "journal"].includes(store.get("tab", "")) ? store.get("tab", "") : "today");
   syncWhatIf();
-  const tab = store.get("tab", "soil");
-  if ($(`nav.tabs button[data-tab="${tab}"]`)) showTab(tab);
+  const tab = store.get("tab", MODE === "beginner" ? "today" : "soil");
+  if (MODE === "beginner") { if (tab === "journal") showPanel(store.get("panel", "diary")); else showB(["today", "garden"].includes(tab) ? tab : "today"); }
+  else if ($(`nav.tabs button[data-tab="${tab}"]`) && !["today", "garden"].includes(tab)) { showTab(tab); if (tab === "journal") showPanel(store.get("panel", "diary")); }
   const saved = store.get("location", null);
   if (saved && ["device", "address", "zip"].includes(saved.source)) {
     showLocation(saved);

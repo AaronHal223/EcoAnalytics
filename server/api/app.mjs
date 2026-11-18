@@ -23,7 +23,13 @@ export const LIMITS = {
   contextChars: 6000,
   messageChars: 2000,
   messages: 16,
+  imageChars: 1_400_000,    // one photo per question, base64 (the app shrinks photos to about 200 KB first)
+  postChars: 1000,
+  postsPerDay: 10,
+  feedPage: 30,
+  reportsToHide: 3,
 };
+export const MOODS = ["great", "good", "okay", "worried", "sad"];
 
 const ALLOWED_ORIGINS = [/^https:\/\/aaronhal223\.github\.io$/i, /^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/];
 
@@ -67,7 +73,7 @@ async function newSession(db, userId) {
 async function userFrom(db, req) {
   const m = /^Bearer\s+([A-Za-z0-9_-]{20,})$/.exec(req.headers.get("authorization") || "");
   if (!m) return null;
-  const rows = await db("SELECT u.id, u.email, u.pass_hash FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > now()", [sha256(m[1])]);
+  const rows = await db("SELECT u.id, u.email, u.pass_hash, u.display_name FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > now()", [sha256(m[1])]);
   return rows[0] ? { ...rows[0], tokenHash: sha256(m[1]) } : null;
 }
 
@@ -77,17 +83,49 @@ async function tooMany(db, key, max, minutes) {
 }
 const note = (db, key) => db("INSERT INTO login_attempts (key) VALUES ($1)", [key]);
 
+/** A photo sent with a question: JPEG, PNG or WebP, base64, size-capped. */
+export function cleanImage(img) {
+  if (!img || typeof img !== "object") return null;
+  const mime = String(img.mime || ""), data = String(img.data || "");
+  if (!/^image\/(jpeg|png|webp)$/.test(mime) || !data || data.length > LIMITS.imageChars || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return undefined;
+  return { mime, data };
+}
+
+// ---- Community -------------------------------------------------------------------------------------------
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const LINK = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|ru|xyz|info|biz|shop|top|link|ly|me)\b)/i;
+export function cleanName(n) {
+  const name = String(n || "").replace(/\s+/g, " ").trim();
+  return name.length >= 2 && name.length <= 30 && /^[\p{L}\p{N} .'_-]+$/u.test(name) && !LINK.test(name) ? name : null;
+}
+export function cleanPost(t) {
+  const text = String(t || "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  if (!text || text.length > LIMITS.postChars) return { error: "post" };
+  if (LINK.test(text)) return { error: "links" };
+  return { text };
+}
+const isAdmin = (env, user) => !!user && String(env.ADMIN_EMAILS || "").toLowerCase().split(",").map(s => s.trim()).filter(Boolean).includes(user.email.toLowerCase());
+const FEED_SQL = `SELECT p.id, coalesce(u.display_name, 'Gardener') AS name, p.body, p.mood, p.created_at, (p.edited_at IS NOT NULL) AS edited,
+  coalesce(p.user_id = $2::uuid, false) AS mine,
+  (SELECT count(*)::int FROM post_likes l WHERE l.post_id = p.id) AS likes,
+  EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.user_id = $2::uuid) AS liked
+  FROM posts p JOIN users u ON u.id = p.user_id
+  WHERE NOT p.hidden AND ($1::timestamptz IS NULL OR p.created_at < $1::timestamptz)
+  ORDER BY p.created_at DESC LIMIT $3`;
+
 // ---- Assistant -----------------------------------------------------------------------------------
 export const SYSTEM_PROMPT = `You are the garden assistant inside EcoAnalytics, a free app that works out a home gardener's soil, season, sun and money.
 You get a summary of THIS gardener's garden from the app (location rounded, soil, beds, this week's weather and to-do list, harvest log). Use it: say "your beds", "your soil", and quote the app's numbers rather than inventing new ones. If something isn't in the summary, say so plainly and give general advice.
 Be short and practical: a few sentences or a short list, plain words a beginner understands, cheapest fixes first (hand-picking, row cover, watering timing, compost) before anything bought. For any product, say to follow the label.
 When asked to write something (a message to a neighbour, a post for a swap group, a question for the local extension office, a note to EcoAnalytics), write it ready to send, in the gardener's voice, without extra commentary.
-Reply in the language the gardener writes in. You can't see photos or the screen. Never ask for or repeat an exact address, passwords or payment details.`;
+Reply in the language the gardener writes in. When the gardener sends a photo of a plant, say what you can see, the most likely cause and one or two cheap fixes; if the photo is unclear, say what to photograph instead. You can't see the screen. Never ask for or repeat an exact address, passwords or payment details.`;
 
-export function geminiBody({ messages, context, system = SYSTEM_PROMPT, json: asJson = false, maxTokens = 700 }) {
+export function geminiBody({ messages, context, image = null, system = SYSTEM_PROMPT, json: asJson = false, maxTokens = 700 }) {
+  const last = messages.length - 1;
   return {
     systemInstruction: { parts: [{ text: `${system}\n\n--- Garden summary from the app ---\n${context || "(none)"}` }] },
-    contents: messages.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.text }] })),
+    contents: messages.map((m, i) => ({ role: m.role === "assistant" ? "model" : "user",
+      parts: [...(image && i === last ? [{ inline_data: { mime_type: image.mime, data: image.data } }] : []), { text: m.text }] })),
     generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4, ...(asJson ? { responseMimeType: "application/json" } : {}) },
   };
 }
@@ -134,10 +172,12 @@ export async function handle(req, { db, env = {}, fetch: fetchFn = fetch }) {
   let body = {};
   try {
     const text = await req.text();
-    if (text.length > LIMITS.dataBytes + 10_000) return json(413, { error: "too_big" }, h);
+    if (text.length > Math.max(LIMITS.dataBytes, LIMITS.imageChars) + 20_000) return json(413, { error: "too_big" }, h);
     body = text ? JSON.parse(text) : {};
   } catch { return json(400, { error: "bad_json" }, h); }
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+  // The visitor's address, when the platform passes it on. Without one, address-based limits fall back to a
+  // looser limit shared by everyone rather than locking every visitor out together.
+  const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || (req.headers.get("x-forwarded-for") || "").split(",")[0]).trim() || null;
 
   try {
     // ---- Public routes ----
@@ -145,8 +185,9 @@ export async function handle(req, { db, env = {}, fetch: fetchFn = fetch }) {
       const email = String(body.email || "").trim(), password = String(body.password || "");
       if (!emailOk(email)) return json(400, { error: "email" }, h);
       if (password.length < LIMITS.passwordMin || password.length > 200) return json(400, { error: "password" }, h);
-      if (await tooMany(db, "signup:" + ip, LIMITS.signupsPerHour, 60)) return json(429, { error: "slow_down" }, h);
-      await note(db, "signup:" + ip);
+      const keyS = ip ? "signup:" + ip : "signup:any";
+      if (await tooMany(db, keyS, ip ? LIMITS.signupsPerHour : LIMITS.signupsPerHour * 30, 60)) return json(429, { error: "slow_down" }, h);
+      await note(db, keyS);
       const exists = await db("SELECT 1 FROM users WHERE lower(email) = lower($1)", [email]);
       if (exists.length) return json(409, { error: "exists" }, h);
       const code = recoveryCode();
@@ -157,23 +198,32 @@ export async function handle(req, { db, env = {}, fetch: fetchFn = fetch }) {
     if (path === "/login" || path === "/recover") {
       const email = String(body.email || "").trim();
       if (!emailOk(email)) return json(400, { error: "email" }, h);
-      const keyE = "login:" + email.toLowerCase(), keyI = "loginip:" + ip;
-      if (await tooMany(db, keyE, LIMITS.loginFailures, 15) || await tooMany(db, keyI, LIMITS.loginFailures * 3, 15)) return json(429, { error: "slow_down" }, h);
+      const keyE = "login:" + email.toLowerCase(), keyI = ip ? "loginip:" + ip : null;
+      if (await tooMany(db, keyE, LIMITS.loginFailures, 15) || (keyI && await tooMany(db, keyI, LIMITS.loginFailures * 3, 15))) return json(429, { error: "slow_down" }, h);
       const rows = await db("SELECT id, email, pass_hash, recovery_hash FROM users WHERE lower(email) = lower($1)", [email]);
       const u = rows[0];
       if (path === "/login") {
         const ok = u ? await checkSecret(String(body.password || ""), u.pass_hash) : (await hashSecret("x"), false);   // same timing either way
-        if (!ok) { await note(db, keyE); await note(db, keyI); return json(401, { error: "wrong" }, h); }
+        if (!ok) { await note(db, keyE); if (keyI) await note(db, keyI); return json(401, { error: "wrong" }, h); }
         return json(200, { token: await newSession(db, u.id), email: u.email }, h);
       }
       const password = String(body.newPassword || "");
       if (password.length < LIMITS.passwordMin || password.length > 200) return json(400, { error: "password" }, h);
       const ok = u ? await checkSecret(normCode(body.recoveryCode), u.recovery_hash) : (await hashSecret("x"), false);
-      if (!ok) { await note(db, keyE); await note(db, keyI); return json(401, { error: "wrong" }, h); }
+      if (!ok) { await note(db, keyE); if (keyI) await note(db, keyI); return json(401, { error: "wrong" }, h); }
       const code = recoveryCode();
       await db("UPDATE users SET pass_hash = $2, recovery_hash = $3 WHERE id = $1", [u.id, await hashSecret(password), await hashSecret(normCode(code))]);
       await db("DELETE FROM sessions WHERE user_id = $1", [u.id]);
       return json(200, { token: await newSession(db, u.id), email: u.email, recoveryCode: code }, h);
+    }
+
+    // ---- Community feed: anyone can read; signed-in readers also see what they liked and wrote ----
+    if (path === "/feed") {
+      const viewer = await userFrom(db, req);
+      const before = typeof body.before === "string" && !Number.isNaN(Date.parse(body.before)) ? body.before : null;
+      const rows = await db(FEED_SQL, [before, viewer?.id ?? null, LIMITS.feedPage]);
+      const admin = isAdmin(env, viewer);
+      return json(200, { posts: rows.map(r => ({ ...r, canDelete: !!r.mine || admin })), more: rows.length === LIMITS.feedPage, signedIn: !!viewer }, h);
     }
 
     // ---- Signed-in routes ----
@@ -182,7 +232,54 @@ export async function handle(req, { db, env = {}, fetch: fetchFn = fetch }) {
 
     if (path === "/me") {
       const d = await db("SELECT updated_at FROM user_data WHERE user_id = $1", [user.id]);
-      return json(200, { email: user.email, updated_at: d[0]?.updated_at ?? null, assistant: !!env.GEMINI_API_KEY }, h);
+      return json(200, { email: user.email, name: user.display_name ?? null, updated_at: d[0]?.updated_at ?? null, assistant: !!env.GEMINI_API_KEY }, h);
+    }
+    if (path === "/name") {
+      const name = cleanName(body.name);
+      if (!name) return json(400, { error: "name" }, h);
+      await db("UPDATE users SET display_name = $2 WHERE id = $1", [user.id, name]);
+      return json(200, { name }, h);
+    }
+    if (path === "/post") {
+      if (!user.display_name) return json(400, { error: "need_name" }, h);
+      const p = cleanPost(body.text);
+      if (p.error) return json(400, { error: p.error }, h);
+      const n = await db("SELECT count(*)::int AS n FROM posts WHERE user_id = $1 AND created_at > now() - interval '1 day'", [user.id]);
+      if ((n[0]?.n ?? 0) >= LIMITS.postsPerDay) return json(429, { error: "post_limit" }, h);
+      const mood = MOODS.includes(body.mood) ? body.mood : null;
+      const rows = await db("INSERT INTO posts (user_id, body, mood) VALUES ($1, $2, $3) RETURNING id, created_at", [user.id, p.text, mood]);
+      return json(200, { post: { id: rows[0].id, name: user.display_name, body: p.text, mood, created_at: rows[0].created_at, edited: false, mine: true, likes: 0, liked: false, canDelete: true } }, h);
+    }
+    if (path.startsWith("/post/")) {
+      const id = String(body.id || "");
+      if (!UUID.test(id)) return json(400, { error: "post_id" }, h);
+      if (path === "/post/edit") {
+        const p = cleanPost(body.text);
+        if (p.error) return json(400, { error: p.error }, h);
+        const rows = await db("UPDATE posts SET body = $3, edited_at = now() WHERE id = $1 AND user_id = $2 RETURNING id", [id, user.id, p.text]);
+        return rows.length ? json(200, { ok: true, body: p.text }, h) : json(404, { error: "gone" }, h);
+      }
+      if (path === "/post/delete") {
+        const rows = await db("DELETE FROM posts WHERE id = $1 AND (user_id = $2 OR $3::boolean) RETURNING id", [id, user.id, isAdmin(env, user)]);
+        return rows.length ? json(200, { ok: true }, h) : json(404, { error: "gone" }, h);
+      }
+      if (path === "/post/like") {
+        const off = await db("DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2 RETURNING post_id", [id, user.id]);
+        if (!off.length) {
+          const on = await db("INSERT INTO post_likes (post_id, user_id) SELECT id, $2 FROM posts WHERE id = $1 AND NOT hidden ON CONFLICT DO NOTHING RETURNING post_id", [id, user.id]);
+          if (!on.length) return json(404, { error: "gone" }, h);
+        }
+        const c = await db("SELECT count(*)::int AS n FROM post_likes WHERE post_id = $1", [id]);
+        return json(200, { liked: !off.length, likes: c[0]?.n ?? 0 }, h);
+      }
+      if (path === "/post/report") {
+        const ok = await db("INSERT INTO post_reports (post_id, user_id) SELECT id, $2 FROM posts WHERE id = $1 ON CONFLICT DO NOTHING RETURNING post_id", [id, user.id]);
+        const c = await db("SELECT count(*)::int AS n FROM post_reports WHERE post_id = $1", [id]);
+        const hide = isAdmin(env, user) || (c[0]?.n ?? 0) >= LIMITS.reportsToHide;
+        if (hide) await db("UPDATE posts SET hidden = true WHERE id = $1", [id]);
+        return json(200, { ok: true, hidden: hide, counted: ok.length > 0 }, h);
+      }
+      return json(404, { error: "not_found" }, h);
     }
     if (path === "/logout") { await db("DELETE FROM sessions WHERE token_hash = $1", [user.tokenHash]); return json(200, { ok: true }, h); }
     if (path === "/pull") {
@@ -207,11 +304,13 @@ export async function handle(req, { db, env = {}, fetch: fetchFn = fetch }) {
       if (body.consent !== true) return json(400, { error: "consent" }, h);
       const messages = cleanMessages(body.messages, path === "/chat");
       if (!messages) return json(400, { error: "messages" }, h);
+      const image = path === "/chat" ? cleanImage(body.image) : null;
+      if (image === undefined) return json(400, { error: "photo" }, h);
       const used = await useAi(db, user.id);
       if (used > LIMITS.aiPerDay) return json(429, { error: "daily_limit", limit: LIMITS.aiPerDay }, h);
       const context = String(body.context || "").slice(0, LIMITS.contextChars);
       if (path === "/chat") {
-        const r = await callGemini(fetchFn, env, geminiBody({ messages, context }));
+        const r = await callGemini(fetchFn, env, geminiBody({ messages, context, image }));
         return r.error ? json(r.error === "busy" ? 429 : 502, { error: r.error }, h) : json(200, { reply: r.text, left: Math.max(0, LIMITS.aiPerDay - used) }, h);
       }
       const transcript = messages.map(m => `${m.role === "user" ? "Gardener" : "Assistant"}: ${m.text}`).join("\n");

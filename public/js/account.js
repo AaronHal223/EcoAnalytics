@@ -30,6 +30,13 @@ export const ERRORS = {
   daily_limit: "That's today's 20 assistant questions. More tomorrow.",
   busy: "The assistant is busy right now. Try again in a minute.",
   ai_failed: "The assistant couldn't answer just now. Try again.",
+  photo: "That photo couldn't be sent. Try a JPEG or PNG under 1 MB.",
+  name: "Use 2 to 30 letters or numbers for your name (no emails or links).",
+  need_name: "Pick a name other growers will see first.",
+  post: "Posts can be up to 1,000 characters.",
+  links: "Links aren't allowed in posts, to keep out spam.",
+  post_limit: "That's 10 posts today. More tomorrow.",
+  gone: "That post isn't there any more.",
   offline: "Can't reach the EcoAnalytics server. Check your connection.",
   server: "Something went wrong on the server. Try again.",
 };
@@ -113,7 +120,7 @@ const readJSON = (storage, k) => { try { return JSON.parse(storage.getItem(k) ||
 export const session = storage => { const a = readJSON(storage, AUTH_KEY); return a && typeof a.token === "string" ? a : null; };
 export const syncState = storage => ({ server: null, dirty: false, ...(readJSON(storage, SYNC_KEY) || {}) });
 export const setSync = (storage, patch) => storage.setItem(SYNC_KEY, JSON.stringify({ ...syncState(storage), ...patch }));
-export function signIn(storage, { token, email }) { storage.setItem(AUTH_KEY, JSON.stringify({ token, email })); }
+export function signIn(storage, { token, email, name = null }) { storage.setItem(AUTH_KEY, JSON.stringify({ token, email, ...(name ? { name } : {}) })); }
 export function signOutHere(storage) { storage.removeItem(AUTH_KEY); storage.removeItem(SYNC_KEY); }
 
 /**

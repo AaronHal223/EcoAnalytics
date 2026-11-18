@@ -20,6 +20,22 @@ It's a single static website that adapts to the screen:
 
 No app store and no separate codebase. On Android/Chrome an **Install app** button appears in the header. On iPhone it's Share, then **Add to Home Screen**.
 
+## Two ways to use it
+
+When you first open the app it asks how you'd like to start. You can switch any time from the footer or your account.
+
+- **Beginner mode** (*"I'm new to growing"*): three picture questions (where is your garden, how much space, how much sun) and the app picks a starter garden of hard-to-kill plants for your season. Then just four tabs:
+  - **Today**: the weather in a sentence, a short checklist of jobs (no watering chores until something is actually planted), a lesson, a quick "how's it going?" check-in, and what the garden is worth.
+  - **My Garden**: a card per plant with one plain status ("Plant from Mar 19", "Ready in about 12 days", "Ready to pick!"). Tap a plant to say you planted it, log a harvest as a handful, bowl or basket (no scale needed), or read how to grow it.
+  - **Diary**: your private diary with moods, plus the **community** feed.
+  - **Ask**: the garden assistant, including **photo check**: send a picture of a sick leaf and get the likely cause and the cheapest fix.
+  - **A lesson a day** (24 of them, English and Spanish) that teaches gardening in the order a first garden needs it, using your own frost dates, soil and sun. Two open on day one and one more each day; the last one invites you to try Advanced mode (`js/lessons.js`, `js/beginner.js`).
+- **Advanced mode** (*"I know my way around a garden"*): every tool below, unchanged.
+
+## Community
+
+Signed-in gardeners can share a diary entry with everyone (tick "Also share with other growers") or post straight to the **Community** feed under a name they choose (never their email). Anyone can read; posting, a 🌱 thumbs-up and reporting need a free account. To keep it friendly and free of spam: no links, 1,000 characters per post, 10 posts a day, and a post reported by three different people is hidden. People can edit or delete their own posts, deleting an account deletes its posts, and the owner (`ADMIN_EMAILS` on the server) can remove any post.
+
 ## What it does
 
 | Tab | What you get |
@@ -57,7 +73,6 @@ No app store and no separate codebase. On Android/Chrome an **Install app** butt
 - **Frost and heat alerts on the phone, with no server.** On Android (Chrome, app added to the home screen) the phone wakes the app about twice a day, checks a free 3-day forecast and warns before frost, a hard freeze or a heat wave for the crops in your beds (`alerts-core.js`, `sw.js`). iPhones don't allow background checks for web apps, so there the weekly list and calendar reminders do the job.
 - **Works south of the equator.** Frost dates, season length, planting windows and summer heat all handle a growing season that runs across New Year (Australia, New Zealand, South Africa, South America).
 - **29 crops, your own prices, your currency.** Ten more crops (eggplant, winter squash, pole beans, sweet potatoes, cantaloupe, broccoli, cabbage, arugula, cilantro, parsley). Enter what your store charges and every number follows. Money shows in 20 currencies at today's European Central Bank rate (`js/currency.js`).
-- **Simple view.** New visitors see just where they are, what to plant and this week; one tap shows everything.
 - **Spanish.** The interface, weekly list, tour, problem solver and explanations on the main screens are in Spanish (`js/i18n.js`, `js/lang-es.js`). The per-crop growing details are still in English.
 - **Accessible.** Checked with axe-core on every tab, light and dark: colour contrast, headings, landmarks, labels and keyboard access to scrolling areas.
 - **It learns your yard.** Log pounds picked, press **Finish season**, and that crop's yield is scaled by what you actually got (clamped, averaged over the last three seasons, never compounding on itself). Logging is optional (`js/calibration.js`).
@@ -136,7 +151,7 @@ Add `?offline=1` to the URL to run on built-in estimates with no network calls.
 npm test
 ```
 
-Over 140 tests (Node's built-in runner, no dependencies) cover the account server (sign-up, sign-in, recovery, sync, throttling, the assistant), sync merging and the daily journal, southern-hemisphere seasons, phone alerts, currency, Spanish, the season report, the sun compass check, the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
+Over 150 tests (Node's built-in runner, no dependencies) cover the account server (sign-up, sign-in, recovery, sync, throttling, the assistant and photos, the community feed with names, likes, edits, reports and moderation), sync merging and the daily journal, beginner mode (starter garden, plant status, today's jobs) and the lessons, southern-hemisphere seasons, phone alerts, currency, Spanish, the season report, the sun compass check, the weekly to-do list, season trends, yard layout and shade checks, strip colour reading, metric conversion, the sun path and skyline maths, sun-adjusted yields, past-season risk and Plan it for me, the crop guide and companion check, plan links, the calendar file, backup and restore, location and VPN detection, soil parsing and averaging, the texture triangle, the proxy fallback, climate summaries, every economics tool, the planting calendar, the watering model, harvest calibration, the source explanations, and the site itself (every referenced file exists, every element the script looks up is in the page, service worker caches every module, HTTPS-only data sources). All outside services are replaced with realistic canned responses.
 
 ## Make it yours
 
@@ -164,7 +179,9 @@ public/                  <- everything that gets published
     guide.js             crop guide, companion check, problem solver
     share.js             plan links, calendar (.ics) file, backup and restore
     account.js           free account: sign-in, sync to the server, merging two devices
-    journal.js           daily journal entries, notes, what the garden assistant is told
+    journal.js           daily journal entries, notes and moods, what the garden assistant is told
+    beginner.js          beginner mode: starter garden, plain plant status, today's jobs
+    lessons.js           a lesson a day, personalised to the garden, English and Spanish
     weekly.js            this week's to-do list from forecast, calendar and watering plan
     trend.js             season trends across 15 past years
     yard.js              yard map layout, plant counts, neighbour and shade checks
