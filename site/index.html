@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eco Analytics AI</title>
+<meta name="description" content="Eco Analytics AI: a free garden planner that works out your soil, season, sun and dollars, with Eco AI to help you choose fruit and vegetables. By Aaron Haldar.">
+<meta name="author" content="Aaron Haldar">
+<meta name="theme-color" content="#24563a" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#173322" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Eco Analytics AI">
+<meta property="og:title" content="Eco Analytics AI">
+<meta property="og:description" content="Free garden planner: your soil, season, sun and dollars, plus an AI garden helper.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<svg class="stars" viewBox="0 0 1200 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+<g class="net"><path d="M700 40L790 92L880 52L960 120L1060 70L1140 128M790 92L840 160L960 120M880 52L1000 20L1060 70M620 120L700 40M620 120L720 170L840 160"/></g>
+<g class="nodes"><circle cx="700" cy="40" r="3"/><circle cx="790" cy="92" r="3.5"/><circle cx="880" cy="52" r="3"/><circle cx="960" cy="120" r="4"/><circle cx="1060" cy="70" r="3"/><circle cx="1140" cy="128" r="3"/><circle cx="840" cy="160" r="3"/><circle cx="1000" cy="20" r="2.5"/><circle cx="620" cy="120" r="2.5"/><circle cx="720" cy="170" r="2.5"/></g>
+<g class="twinkle"><path d="M540 46l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/><path d="M1110 30l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path d="M930 182l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path d="M420 150l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/></g>
+</svg>
+<svg class="leaves" viewBox="0 0 1200 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+<g class="sway">
+<path d="M1040 240C1000 150 1010 70 1090 10c40 70 30 160-50 230z"/>
+<path d="M1110 250c-20-80 10-150 90-180 20 70-10 150-90 180z"/>
+<path d="M960 250c-40-50-50-110-10-170 50 40 60 110 10 170z"/>
+</g>
+<path d="M0 200c180-40 360 30 560 0s400-50 640-10v40H0z"/>
+</svg>
+<div class="brand">
+<img src="icons/icon.svg" alt="">
+<div>
+<h1>Eco <span>Analytics</span> <b class="ai-tag">AI</b></h1>
+<p>Your soil, your season, your dollars, with an AI garden helper.</p>
+</div>
+</div>
+<div class="top-actions">
+<button class="mode-pill" id="modePill" aria-label="Change mode"><span class="mode-pill-ico" id="modePillIco" aria-hidden="true">🏡</span><span id="modePillLbl">Backyard</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+<button class="icon-btn install" id="installBtn" aria-label="Install app">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg><span class="lbl">Install app</span></button>
+<button class="icon-btn" id="acctBtn" aria-label="Your account">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span class="lbl" id="acctLbl">Sign in</span></button>
+<button class="icon-btn" id="unitsBtn" aria-label="Switch units" data-units="us">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7h18v10H3z"/><path d="M7 7v4m4-4v6m4-6v4m4-4v6"/></svg><span class="lbl" id="unitsLbl">Units</span></button>
+<button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span class="lbl">Theme</span></button>
+</div>
+</header>
+<section class="loc" id="locBox" aria-label="Garden location">
+<div class="loc-top">
+<span class="loc-pin" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+<div style="flex:1;min-width:0"><div class="eyebrow">Garden location</div><div class="loc-label" id="locLabel">Finding you…</div></div>
+<span class="chip" id="locChip" hidden></span>
+<button class="btn ghost loc-toggle" id="locToggle" aria-expanded="false">Change</button>
+</div>
+<div class="vpn" id="vpnBox" hidden></div>
+<div class="loc-form">
+<input id="addrInput" aria-label="Garden address, town or postcode" placeholder="Address, town or postcode (most accurate)" autocomplete="street-address" inputmode="text">
+<button class="btn" id="addrBtn">Use this</button>
+<button class="btn ghost" id="gpsBtn">Use device location</button>
+</div>
+<div class="small dim" id="locHint">Soil is looked up from USDA soil surveys (US) or global soil maps (everywhere else) around this point. The more exact the location, the tighter the estimate.</div>
+</section>
+<nav class="tabs" aria-label="Sections">
+<button class="on" data-tab="soil" aria-current="page">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18M3 14h18M3 19h18"/><path d="M12 9V4m0 0c-2 0-3.5 1-4 2.5M12 4c2 0 3.5 1 4 2.5"/></svg>
+<span>Soil</span></button>
+<button data-tab="crops">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V10"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6zM12 10c0-4 3-6 7-6 0 4-3 6-7 6z"/></svg>
+<span>Crop<span class="tab-long"> value</span></span></button>
+<button data-tab="calendar">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4m6-4v4"/></svg>
+<span>Calendar</span></button>
+<button data-tab="roi">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5M12 6v2m0 8v2"/></svg>
+<span><span class="tab-long">Garden </span>ROI</span></button>
+<button data-tab="water" class="adv">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>
+<span>Water<span class="tab-long"> cost</span></span></button>
+<button data-tab="fert" class="adv">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10l2 5v11H5V9z"/><path d="M5 9h14M10 14h4"/></svg>
+<span>Fertilizer<span class="tab-long"> plan</span></span></button>
+<button data-tab="guide">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5M9 8h7M9 12h5"/></svg>
+<span>Guide</span></button>
+<button data-tab="journal">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18M12 8h4M12 12h4"/></svg>
+<span>Journal</span></button>
+<button data-tab="farm" class="farm">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 20V11l6-5 6 5v9"/><path d="M10 20v-5h4v5"/><path d="M4 8l8-6 8 6"/></svg>
+<span>Farm<span class="tab-long"> &amp; market</span></span></button>
+</nav>
+<nav class="btabs" aria-label="Sections">
+<button data-btab="today"><span class="bico" aria-hidden="true">☀️</span><span>Today</span></button>
+<button data-btab="garden"><span class="bico" aria-hidden="true">🌱</span><span>My Garden</span></button>
+<button data-btab="diary"><span class="bico" aria-hidden="true">📔</span><span>Diary</span></button>
+<button data-btab="ask"><span class="bico" aria-hidden="true">💬</span><span>Ask</span></button>
+</nav>
+<section class="ai-brief" id="aiBrief" hidden aria-label="Smart brief">
+<div class="ai-orb sm" aria-hidden="true"><i></i></div>
+<div class="ai-brief-body">
+<div class="eyebrow">Smart brief <span class="ai-free" title="Worked out on your phone from your soil and weather. No AI request is used.">⚡ instant · no AI request</span></div>
+<ul id="aiBriefList"></ul>
+</div>
+<div class="ai-brief-actions"><button class="btn ghost sm" id="aiBriefFruit">🍓 Fruit Finder</button><button class="btn sm" id="aiBriefAsk">Ask Eco AI</button><button class="why-close" id="aiBriefX" aria-label="Hide the smart brief">&times;</button></div>
+</section>
+<main id="main">
+<section class="tab" id="tab-today">
+<div class="card b-hello">
+<p class="b-greet" id="bGreet">Hello</p>
+<p class="b-place"><span id="bPlace">Finding your garden…</span> · <button class="link" id="bPlaceChange">change</button></p>
+<p class="b-weather" id="bWeather"></p>
+</div>
+<div class="gap"></div>
+<div class="card">
+<h2>Today's jobs</h2>
+<ul class="b-jobs" id="bJobs"></ul>
+</div>
+<div class="gap"></div>
+<div class="card pest-card" id="bPests" hidden></div>
+<div class="gap" data-gap-for="bPests" hidden></div>
+<div class="card b-lesson" id="bLesson">
+<div class="row" style="gap:8px;flex-wrap:wrap"><span class="eyebrow" id="bLessonNo">Lesson</span><button class="link small" id="bLessonsAll">All lessons</button></div>
+<h2 id="bLessonTitle" translate="no"></h2>
+<p id="bLessonBody" translate="no"></p>
+<p class="b-try" id="bLessonTry" translate="no"></p>
+<div class="btn-row"><button class="btn" id="bLessonDone">Got it</button><button class="btn ghost" id="bLessonAdv" hidden>Try Backyard mode</button></div>
+</div>
+<div class="gap"></div>
+<div class="card">
+<h2>How's it going?</h2>
+<div class="moods" role="radiogroup" aria-label="How you feel about your garden today" data-mood-group="today">
+<button role="radio" aria-checked="false" data-mood="great" aria-label="Great">😄</button><button role="radio" aria-checked="false" data-mood="good" aria-label="Good">🙂</button><button role="radio" aria-checked="false" data-mood="okay" aria-label="Okay">😐</button><button role="radio" aria-checked="false" data-mood="worried" aria-label="Worried">😟</button><button role="radio" aria-checked="false" data-mood="sad" aria-label="Sad">😢</button>
+</div>
+<div class="b-checkin" id="bCheckin" hidden>
+<textarea id="bCheckinText" rows="2" maxlength="1000" aria-label="What's happening in your garden?" placeholder="What's happening in your garden? (optional)"></textarea>
+<label class="share-tick"><input type="checkbox" id="bCheckinShare"> <span>Also share with other growers</span></label>
+<button class="btn" id="bCheckinSave">Save to my diary</button>
+</div>
+</div>
+<div class="gap"></div>
+<div class="card b-money" id="bMoney"></div>
+<div class="gap"></div>
+<div class="card eco-card" id="bEco" hidden></div>
+</section>
+<section class="tab" id="tab-garden">
+<div class="card">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>My garden</h2><span class="small dim" id="bGardenSub"></span></div>
+<div class="b-plants" id="bPlants"></div>
+<div class="btn-row"><button class="btn" id="bAddPlant">+ Add a plant</button><button class="btn ghost" data-open-fruit>🍓 Find fruit for my garden</button><button class="btn ghost" id="bRestart">Start over</button></div>
+</div>
+<div class="gap"></div>
+<div class="card b-money" id="bPicked"></div>
+</section>
+<section class="tab on" id="tab-soil">
+<div class="card head-card" id="headCard"><div class="skeleton" style="height:84px"></div></div>
+<div class="gap"></div>
+<div class="card week" id="weekCard">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>This week in your garden</h2><span class="small dim" id="weekSub"></span></div>
+<ol class="week-list" id="weekList"><li class="skeleton" style="height:56px"></li></ol>
+<div class="simple-banner" id="simpleBanner"><span><strong>Simple view:</strong> just the essentials (where you are, what to plant, and this week). Water, fertilizer, risk and yard tools are a tap away.</span>
+<button class="btn ghost" data-view="full">Show everything</button></div>
+<div class="alert-row"><button class="btn ghost" id="alertBtn">Get frost &amp; heat alerts on this phone</button><span class="small dim" id="alertMsg"></span></div>
+</div>
+<div class="gap"></div>
+<div class="grid g2 watch-grid">
+<div class="card pest-card" id="pestCard"><h2>Pest watch</h2><p class="small dim" style="margin:0">Working out when pests usually show up here…</p></div>
+<div class="card eco-card" id="ecoCard"></div>
+</div>
+<div class="gap"></div>
+<div class="grid g4" id="seasonTiles"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+<div class="gap"></div>
+<div class="grid g3" id="soilCards"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+<div class="gap"></div>
+<div class="grid g3">
+<div class="card adv farm" id="textureCard"></div>
+<div class="card adv">
+<h2>How sure are these numbers?</h2>
+<ul class="notes" id="soilNotes"></ul>
+<p class="small dim" id="soilSources"></p>
+</div>
+<div class="card">
+<details id="testDetails">
+<summary>Have a soil test? Enter it</summary>
+<p class="small dim">Real lab or kit numbers replace the estimates everywhere. Leave blank what you don't have.</p>
+<div class="form-grid">
+<label>pH<input type="number" step="0.1" inputmode="decimal" id="t_ph"></label>
+<label>Organic matter %<input type="number" step="0.1" inputmode="decimal" id="t_organic_matter_pct"></label>
+<label>Phosphorus ppm<input type="number" step="1" inputmode="numeric" id="t_p_ppm"></label>
+<label>Potassium ppm<input type="number" step="1" inputmode="numeric" id="t_k_ppm"></label>
+<label>CEC<input type="number" step="0.1" inputmode="decimal" id="t_cec"></label>
+</div>
+<div style="margin-top:10px;display:flex;gap:8px"><button class="btn" id="testApply">Apply test</button><button class="btn ghost" id="testClear">Clear</button></div>
+</details>
+<div class="strip-cta">
+<button class="btn ghost" id="stripBtn">Read a test strip with your camera</button>
+<span class="small dim">Photograph a cheap pH strip or kit next to its colour chart. Read on your phone, never uploaded.</span>
+</div>
+</div>
+</div>
+<div class="gap"></div>
+<div class="card adv" id="shiftCard">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>How your season is changing</h2><span class="small dim" id="shiftSub"></span></div>
+<div id="shiftBody"><p class="small dim" style="margin:0">Loading 15 years of local weather…</p></div>
+</div>
+</section>
+<section class="tab" id="tab-crops">
+<div class="card rank-controls">
+<div><div class="eyebrow" style="margin-bottom:6px">Sun where you'll plant</div>
+<div class="seg" id="sunSeg" role="radiogroup" aria-label="Hours of direct sun">
+<button data-sun="8" role="radio">Full 8h+</button><button data-sun="6" role="radio">6h</button><button data-sun="4" role="radio">4h</button><button data-sun="2" role="radio">Shade</button>
+</div></div>
+<div class="adv"><div class="eyebrow" style="margin-bottom:6px">Rank by</div>
+<div class="seg" id="rankBy" role="radiogroup" aria-label="Rank crops by">
+<button data-by="typical" role="radio">Typical year</button><button data-by="safe" role="radio">Bad year (safest)</button>
+</div></div>
+<p class="small dim" id="riskStatus" style="margin:0;flex:1 1 220px"></p>
+</div>
+<div class="gap"></div>
+<div class="card">
+<div class="row rank-head" style="flex-wrap:wrap"><h2>Which crops pay best per square foot here</h2>
+<span class="small dim">Net = harvest value − seeds/plants − water − nitrogen, for one year in your soil, season and sun. Tap a crop for its growing guide.</span></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="rankTable"></table></div>
+<ol class="rank-list" id="rankList"></ol>
+</div>
+<div class="gap"></div>
+<div class="card adv" id="pricesCard">
+<h2>Prices where you shop</h2>
+<p class="small dim card-sub">Every dollar figure uses what your crops cost at your own store.</p>
+<div class="shop-pick">
+<span class="shop-ico" aria-hidden="true">🛒</span>
+<div class="shop-pick-txt"><strong id="shopName">Pick your store</strong><span class="small dim" id="shopNote">Typical US prices until you do.</span></div>
+<button class="btn" data-open-shop>Where I shop</button>
+</div>
+<div class="form-grid" style="margin-top:14px"><label>Currency<select id="currencySel"></select></label></div>
+<p class="small dim" id="fxNote" style="margin:8px 0 0"></p>
+<details class="prices-box"><summary>Every crop's price <span class="small dim" id="priceCount"></span></summary>
+<div class="price-grid" id="priceGrid"></div>
+<button class="btn ghost" id="priceReset" style="margin-top:10px">Clear the prices I typed</button>
+</details>
+</div>
+</section>
+<section class="tab" id="tab-calendar">
+<div class="card">
+<div class="row cal-head">
+<h2>What to plant, and when</h2>
+<div class="seg" id="calScope" role="radiogroup" aria-label="Which crops to show">
+<button data-scope="plan" role="radio">My plan</button><button data-scope="all" role="radio">All crops</button>
+</div>
+</div>
+<p class="small dim" id="calIntro" style="margin:0 0 10px"></p>
+<div id="calNow"></div>
+<div class="cal-actions"><button class="btn" id="icsBtn">Add my plan to my phone's calendar</button>
+<span class="small dim">Planting and harvest dates for your beds, with a reminder the day before. Works with Apple, Google and Outlook calendars.</span></div>
+</div>
+<div class="gap"></div>
+<div class="card cal" id="calendar"></div>
+</section>
+<section class="tab" id="tab-roi">
+<div class="grid split">
+<div class="card">
+<h2>Your garden plan</h2>
+<div id="planRows"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+<button class="btn ghost" id="addRow">+ Add bed</button>
+<button class="btn ghost" id="autoBtn">Plan it for me</button>
+<button class="btn ghost" id="shareBtn">Share plan</button>
+<span class="small dim" id="planArea" style="align-self:center"></span>
+</div>
+<div class="auto-box" id="autoBox" hidden>
+<p class="small" style="margin:0 0 8px">Fills your space with the crops that pay best here in a typical year <em>and</em> hold up in a bad one, no more than a quarter of the space each.</p>
+<div class="form-grid">
+<label>Space to plant (sq ft)<input type="number" min="4" step="1" inputmode="numeric" id="autoArea" value="32"></label>
+<label>Sun there<select id="autoSun"><option value="8">Full sun (8h+)</option><option value="6">About 6 hours</option><option value="4">About 4 hours</option><option value="2">Shade (2h)</option></select></label>
+</div>
+<div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="autoGo">Replace my plan</button><button class="btn ghost" id="autoCancel">Cancel</button></div>
+</div>
+<ul class="notes companions" id="companionNotes"></ul>
+<div class="form-grid adv" style="margin-top:14px">
+<label>Water rate (<span data-cur>$</span> / 1,000 gal)<input type="number" step="0.25" inputmode="decimal" id="waterRate" value="6"></label>
+<label>Watering method<select id="irrigation"><option value="hose">Hose / can</option><option value="drip">Drip</option><option value="sprinkler">Sprinkler</option></select></label>
+<label>One-time setup (<span data-cur>$</span>)<input type="number" step="10" inputmode="decimal" id="setupCost" value="0"></label>
+<label>Spread setup over (yrs)<input type="number" step="1" min="1" inputmode="numeric" id="setupYears" value="5"></label>
+<label class="farm">Your time (hrs / week per 100 sq ft)<input type="number" step="0.25" min="0" inputmode="decimal" id="laborHrs" value="1"></label>
+<label class="farm">Value your time (<span data-cur>$</span> / hr, optional)<input type="number" step="1" min="0" inputmode="decimal" id="hourlyWage" value="0"></label>
+<label class="check"><input type="checkbox" id="organicOnly"> Organic fertilizers only</label>
+</div>
+</div>
+<div class="grid" style="align-content:start">
+<div class="grid g2" id="roiKpis"></div>
+<div class="card adv" id="riskCard"><h2>Good year, bad year</h2><div id="riskBody"><p class="small dim" style="margin:0">Replaying your plan through 15 past seasons of local weather…</p></div></div>
+<div class="card adv farm"><h2>Where the money goes</h2><div id="costStack"></div></div>
+<div class="card adv farm"><h2>By bed</h2><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="roiTable"></table></div></div>
+</div>
+</div>
+<div class="gap"></div>
+<div class="card adv" id="yardCard">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>Yard map</h2>
+<span class="small dim">Drag beds to where they really are; drag the corner dot to resize. North is up. Tap a bed to see how many plants fit.</span></div>
+<div class="yard-tools">
+<label><span>Yard width (<span data-yard-unit>ft</span>)</span><input type="number" min="4" max="300" step="1" inputmode="numeric" id="yardW"></label>
+<label><span>Yard length (<span data-yard-unit>ft</span>)</span><input type="number" min="4" max="300" step="1" inputmode="numeric" id="yardH"></label>
+<button class="btn ghost" id="yardTidy">Tidy layout</button>
+</div>
+<div class="yard-wrap"><svg id="yardSvg" role="img" aria-label="Map of your beds"></svg></div>
+<div id="yardDetail"></div>
+<ul class="notes" id="yardNotes"></ul>
+</div>
+<div class="gap"></div>
+<div class="card" id="logCard">
+<div class="row" style="flex-wrap:wrap"><h2>Harvest log <span class="small dim" style="font-weight:400">optional</span></h2>
+<span class="small dim">Log what you pick. When a crop is done, finish its season and the app learns what your yard really produces.</span></div>
+<div class="log-form">
+<select id="logCrop" aria-label="Crop picked"></select>
+<input type="number" id="logLb" min="0" step="0.1" inputmode="decimal" placeholder="lb picked" aria-label="Pounds picked">
+<button class="btn" id="logAdd">Log harvest</button>
+</div>
+<label class="share-tick give-tick"><input type="checkbox" id="logGive"> <span>I gave this away (food bank, neighbours, a giving garden)</span></label>
+<div id="logProgress"></div>
+<div id="logEntries"></div>
+<div class="log-tools"><button class="btn ghost" id="logCsv">Download log (CSV)</button><button class="btn ghost" id="seasonCsv">Season report for testers</button><button class="btn ghost" id="calReset">Reset calibration</button></div>
+</div>
+<div class="gap"></div>
+<div class="card">
+<div class="row" style="flex-wrap:wrap"><h2>Your data</h2>
+<span class="small dim">No tracking. Without an account, your plan, soil test and harvests stay in this browser: save a backup to move them, or sign in for free and they follow you to any phone or computer.</span></div>
+<div class="log-tools"><button class="btn ghost" id="backupBtn">Save a backup</button>
+<label class="btn ghost file-btn">Restore a backup<input type="file" id="restoreInput" accept=".json,application/json" hidden></label></div>
+</div>
+</section>
+<section class="tab" id="tab-water">
+<div class="card" id="forecastCard"><div class="skeleton" style="height:90px"></div></div>
+<div class="gap"></div>
+<div class="card whatif">
+<div><div class="eyebrow" style="margin-bottom:6px">How you water</div>
+<div class="seg" id="methodSeg" role="radiogroup" aria-label="Watering method">
+<button data-m="hose" role="radio">Hose</button><button data-m="drip" role="radio">Drip</button><button data-m="sprinkler" role="radio">Sprinkler</button>
+</div></div>
+<label class="slider"><span class="row"><span class="eyebrow">Your water rate</span><span class="num" id="rateOut"></span></span>
+<input type="range" id="rateSlider" min="1" max="20" step="0.25" aria-label="Water rate in dollars per 1,000 gallons"></label>
+</div>
+<div class="gap"></div>
+<div class="grid g4" id="waterKpis"></div>
+<div class="gap"></div>
+<div class="card chart"><h2>Irrigation you'll need beyond rainfall</h2>
+<p class="small dim" style="margin:0">From the last three years of local weather: crop water use (evapotranspiration) minus the rain your soil holds onto.</p>
+<div id="waterChart"></div>
+</div>
+<div class="gap"></div>
+<div class="card"><h2>Rain vs. what plants use</h2><div id="rainChart"></div></div>
+</section>
+<section class="tab" id="tab-fert">
+<div class="grid g4" id="fertKpis"></div>
+<div class="gap"></div>
+<div class="grid split">
+<div class="card"><h2>Cheapest shopping list</h2>
+<p class="small dim" style="margin-top:0">Picks whole bags to minimise what you spend at the store, while meeting this plan's nitrogen, phosphorus and potassium needs.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="fertTable"></table></div>
+</div>
+<div class="card"><h2>Soil fixes</h2><div id="soilFixes"></div></div>
+<div class="card"><h2>Nutrient balance (lb)</h2><div id="nutrientChart"></div><ul class="notes" id="fertNotes"></ul></div>
+</div>
+</section>
+<section class="tab" id="tab-guide">
+<div class="card fruit-cta">
+<div class="fruit-cta-art" aria-hidden="true">🍓🫐🍑</div>
+<div><h2>Fruit Finder</h2><p class="small dim" style="margin:2px 0 0">Which fruits suit your winters, sun, space and soil, and what they're worth. Instant, no AI request needed.</p></div>
+<button class="btn" data-open-fruit>Find my fruit</button>
+</div>
+<div class="gap"></div>
+<div class="card">
+<h2>Something wrong in the garden?</h2>
+<p class="small dim" style="margin:4px 0 10px">Pick what you're seeing. Cheapest fixes come first, and notes about your own soil are added where they matter.</p>
+<div class="problems" id="problemList"></div>
+</div>
+<div class="gap"></div>
+<div class="card">
+<div class="row" style="flex-wrap:wrap"><h2>Crop guide</h2>
+<input type="search" id="guideSearch" placeholder="Search crops" aria-label="Search crops" class="guide-search"></div>
+<div class="guide-grid" id="guideGrid"></div>
+</div>
+</section>
+<section class="tab" id="tab-journal">
+<div class="seg" role="tablist" aria-label="Journal">
+<button role="tab" data-panel="diary" aria-selected="true">My diary</button>
+<button role="tab" data-panel="community" aria-selected="false">Community</button>
+<button role="tab" data-panel="ask" aria-selected="false">Ask</button>
+</div>
+<div class="gap"></div>
+<div class="panel" id="panel-diary">
+<div class="card">
+<h2>How are you and your garden doing?</h2>
+<div class="moods" role="radiogroup" aria-label="Mood" data-mood-group="diary">
+<button role="radio" aria-checked="false" data-mood="great" aria-label="Great">😄</button><button role="radio" aria-checked="false" data-mood="good" aria-label="Good">🙂</button><button role="radio" aria-checked="false" data-mood="okay" aria-label="Okay">😐</button><button role="radio" aria-checked="false" data-mood="worried" aria-label="Worried">😟</button><button role="radio" aria-checked="false" data-mood="sad" aria-label="Sad">😢</button>
+</div>
+<div class="note-add">
+<textarea id="noteText" rows="2" maxlength="1000" aria-label="New diary note" placeholder="What's happening? What did you plant, see or try?"></textarea>
+<button class="btn" id="noteAdd">Save</button>
+</div>
+<label class="share-tick"><input type="checkbox" id="noteShare"> <span>Also share with other growers</span></label>
+</div>
+<div class="gap"></div>
+<div class="card" id="journalCard">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>My diary</h2><span class="small dim">The app writes a short update each day. Tap Edit to change anything.</span></div>
+<div class="journal" id="journalList"></div>
+<div class="btn-row"><button class="btn ghost" id="journalMore" hidden>Show older</button><button class="btn ghost" id="journalTxt">Download diary</button></div>
+</div>
+</div>
+<div class="panel" id="panel-community" hidden>
+<div class="card">
+<h2>Growers' community</h2>
+<p class="small dim" style="margin:4px 0 10px">What's happening in other people's gardens. Be kind and helpful. No links or selling; posts reported by three people are hidden.</p>
+<div id="comNeedAcct" hidden><p class="small">Sign in (free) to post, react and report.</p><button class="btn" data-open-acct>Sign in or create an account</button></div>
+<div id="comNameBox" hidden>
+<label class="small dim">Name other growers will see<input id="comName" maxlength="30" autocomplete="nickname" placeholder="e.g. Rosa in Trenton"></label>
+<button class="btn ghost" id="comNameSave">Save name</button>
+</div>
+<div id="comCompose" hidden>
+<div class="moods" role="radiogroup" aria-label="Mood" data-mood-group="community">
+<button role="radio" aria-checked="false" data-mood="great" aria-label="Great">😄</button><button role="radio" aria-checked="false" data-mood="good" aria-label="Good">🙂</button><button role="radio" aria-checked="false" data-mood="okay" aria-label="Okay">😐</button><button role="radio" aria-checked="false" data-mood="worried" aria-label="Worried">😟</button><button role="radio" aria-checked="false" data-mood="sad" aria-label="Sad">😢</button>
+</div>
+<div class="note-add">
+<textarea id="comText" rows="2" maxlength="1000" aria-label="Write a post" placeholder="Share what's happening in your garden"></textarea>
+<button class="btn" id="comPost">Post</button>
+</div>
+<p class="small dim">Posting as <strong id="comAs" translate="no"></strong> · <button class="link" id="comRename">change name</button></p>
+</div>
+<p class="small acct-err" id="comMsg" role="status"></p>
+</div>
+<div class="gap"></div>
+<div class="feed" id="feed" aria-live="polite"></div>
+<div class="btn-row"><button class="btn ghost" id="feedMore" hidden>Show older posts</button><button class="btn ghost" id="feedRefresh">Refresh</button></div>
+</div>
+<div class="panel" id="panel-ask" hidden>
+<div class="card" id="chatCard">
+<div class="chat-head">
+<div class="ai-orb" aria-hidden="true"><i></i></div>
+<div><h2>Eco AI</h2><p class="small dim">Your garden helper. It knows your soil, plants, frost dates and this week's jobs.</p></div>
+</div>
+<div class="chat-log" id="chatLog" aria-live="polite"></div>
+<div class="chat-starters" id="chatStarters"></div>
+<label class="consent" id="aiConsentBox"><input type="checkbox" id="aiConsent"> <span id="aiConsentText">I understand full answers come from Google's free Gemini service, which may keep what I type and the photos I send and use them to improve its products. I won't send anything private. Your town, soil and plants are sent with each question; your address and email are not.</span></label>
+<div class="chat-photo" id="chatPhoto" hidden><img id="chatPhotoImg" alt="Photo to send"><button class="link" id="chatPhotoX">Remove photo</button></div>
+<div class="chat-input">
+<label class="btn ghost photo-btn" title="Add a photo"><input type="file" id="chatFile" accept="image/*" hidden><span aria-hidden="true">📷</span><span class="sr-only">Add a photo</span></label>
+<textarea id="chatInput" rows="2" maxlength="2000" aria-label="Ask the garden assistant" placeholder="Ask Eco AI, e.g. Which fruits should I grow?"></textarea>
+<button class="btn" id="chatSend">Ask</button>
+</div>
+<div class="btn-row"><button class="btn ghost" id="chatSave" disabled>Save summary to diary</button><button class="btn ghost" id="chatClear" disabled>New chat</button></div>
+<p class="small dim" id="chatMsg" role="status"></p>
+<p class="small dim chat-foot">⚡ Instant answers come from your own garden data and don't use an AI request. Eco AI can be wrong; check anything important.</p>
+</div>
+</div>
+</section>
+<section class="tab" id="tab-farm">
+<div class="card farm-hero">
+<div><div class="eyebrow">Farm &amp; Market</div><h2>Your plan as a business</h2>
+<p class="small dim" style="margin:4px 0 0">Revenue, costs, margins and break-even prices for every crop, scaled to the ground you farm and the way you sell. Shared costs (water, fertilizer, setup, labour) are split by area.</p></div>
+</div>
+<div class="gap"></div>
+<div class="card farm-controls">
+<div><div class="eyebrow" style="margin-bottom:6px">Ground</div>
+<div class="seg" id="farmScale" role="radiogroup" aria-label="Area to plan for">
+<button data-scale="plan" role="radio">My plan</button><button data-scale="1000" role="radio">1,000 sq ft</button><button data-scale="10890" role="radio">¼ acre</button><button data-scale="43560" role="radio">1 acre</button>
+</div></div>
+<div><div class="eyebrow" style="margin-bottom:6px">Where you sell</div>
+<div class="seg" id="farmChannel" role="radiogroup" aria-label="Where you sell">
+<button data-ch="market" role="radio">Market</button><button data-ch="csa" role="radio">CSA</button><button data-ch="restaurant" role="radio">Restaurants</button><button data-ch="wholesale" role="radio">Wholesale</button>
+</div></div>
+<label class="farm-pct"><span>Price you get, % of store price</span><input type="number" id="farmPct" min="10" max="300" step="5" inputmode="numeric" value="100"></label>
+<label class="farm-pct"><span>Labour (<span data-cur>$</span> / hr)</span><input type="number" id="farmWage" min="0" step="1" inputmode="decimal" value="15"></label>
+</div>
+<div class="gap"></div>
+<div class="grid g4" id="farmKpis"></div>
+<div class="gap"></div>
+<div class="grid split">
+<div class="card"><h2>Margin by crop</h2><div id="farmChart"></div></div>
+<div class="card"><h2>If prices move</h2><p class="small dim" style="margin:0 0 8px">Season margin if what you charge changes, with the same costs.</p><div id="farmSense"></div></div>
+</div>
+<div class="gap"></div>
+<div class="card">
+<div class="row" style="flex-wrap:wrap;gap:6px"><h2>Every crop, by the numbers</h2><span class="small dim">Sorted by margin. "Steady" is how many of the last 15 seasons the crop paid off here.</span></div>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable table"><table id="farmTable"></table></div>
+<div class="log-tools"><button class="btn ghost" id="farmCsv">Download as a spreadsheet (CSV)</button><button class="btn ghost" id="farmPrint">Print a one-page report</button></div>
+<p class="small dim" id="farmNote" style="margin:10px 0 0"></p>
+</div>
+</section>
+</main>
+<footer>
+Data: USDA NRCS Soil Data Access (SSURGO), ISRIC SoilGrids, Open-Meteo historical weather and forecast, OpenStreetMap Nominatim, Zippopotam.us, GeoJS.
+Prices and yields are typical US values; edit <span class="num">js/data.js</span> to match yours.<br>
+Eco Analytics AI is designed and built by Aaron Haldar. © 2026 Aaron Haldar. All rights reserved. Free to use.<br>
+<button class="link" id="welcomeBtn">What is Eco Analytics AI?</button><span class="tour-link"> · <button class="link" id="tourBtn">Show me around</button></span> · <button class="link" data-open-fruit>Fruit Finder</button> · <button class="link" id="modeBtn" data-mode-switch>Change mode</button> · <button class="link" id="langBtn" translate="no">Español</button>
+</footer>
+</div>
+<dialog id="whySheet" aria-labelledby="whyTitle">
+<div class="why-head"><div><div class="eyebrow">Where this number comes from</div><h2 id="whyTitle"></h2><div class="num why-sum" id="whySum"></div></div>
+<button class="why-close" id="whyClose" aria-label="Close">&times;</button></div>
+<ol class="why-steps" id="whySteps"></ol>
+<p class="small why-caveat" id="whyCaveat" hidden></p>
+<p class="small dim" id="whySources"></p>
+</dialog>
+<dialog id="guideSheet" class="sheet" aria-labelledby="guideTitle">
+<div class="why-head"><div><div class="eyebrow">Growing guide</div><h2 id="guideTitle"></h2><div class="small dim" id="guideSub"></div></div>
+<button class="why-close" id="guideClose" aria-label="Close">&times;</button></div>
+<div id="guideBody"></div>
+</dialog>
+<dialog id="sunSheet" class="sheet" aria-labelledby="sunTitle">
+<div class="why-head"><div><div class="eyebrow">Sun at this bed</div><h2 id="sunTitle">How much sun does it get?</h2></div>
+<button class="why-close" id="sunClose" aria-label="Close">&times;</button></div>
+<div class="seg sun-mode" id="sunMode" role="tablist" aria-label="How to measure">
+<button data-mode="scan" role="tab">Scan with camera</button><button data-mode="quick" role="tab">Quick estimate</button>
+</div>
+<div id="sunScan" class="sun-pane">
+<p class="small">Stand where the bed is. Aim the cross at the <strong>top</strong> of trees, roofs and fences, sweeping slowly from <strong id="sunFrom">east</strong>, through <strong id="sunVia">south</strong>, to <strong id="sunTo">west</strong>. Where the sky is open, aim at the horizon. Nothing is recorded or uploaded; the camera is only a viewfinder.</p>
+<div class="viewfinder" id="viewfinder">
+<video id="sunVideo" playsinline muted autoplay></video>
+<div class="cross" aria-hidden="true"></div>
+<div class="vf-read num" id="sunRead">Tap Start</div>
+</div>
+<div class="cover" id="sunCover" aria-label="How much of the sky you've swept"></div>
+<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="scanStart">Start</button><button class="btn ghost" id="scanDone" disabled>Done</button><button class="btn ghost" id="sunCal">Check compass with the sun</button></div>
+<p class="small dim" id="scanMsg"></p>
+</div>
+<div id="sunQuick" class="sun-pane" hidden>
+<p class="small">Standing at the bed, how high do trees, buildings or fences look in each direction?</p>
+<div class="form-grid" id="quickGrid"></div>
+<button class="btn" id="quickGo" style="margin-top:10px">Work it out</button>
+</div>
+<div id="sunResult"></div>
+</dialog>
+<dialog id="stripSheet" class="sheet" aria-labelledby="stripTitle">
+<div class="why-head"><div><div class="eyebrow">Soil test reader</div><h2 id="stripTitle">Read a test strip</h2></div>
+<button class="why-close" id="stripClose" aria-label="Close">&times;</button></div>
+<div class="form-grid">
+<label>What does it test?<select id="stripType"><option value="ph">pH</option><option value="p_ppm">Phosphorus (ppm)</option><option value="k_ppm">Potassium (ppm)</option></select></label>
+<label>Values printed on the chart<input id="stripValues" inputmode="decimal" placeholder="e.g. 4.5, 5.5, 6.5, 7.5"></label>
+</div>
+<p class="small dim" style="margin:8px 0">Put the strip or capsule <strong>next to the colour chart</strong> in good daylight, then take one photo of both.</p>
+<label class="btn file-btn">Take or choose a photo<input type="file" id="stripFile" accept="image/*" capture="environment" hidden></label>
+<div class="strip-stage" id="stripStage" hidden>
+<p class="small strip-step" id="stripStep"></p>
+<canvas id="stripCanvas"></canvas>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn ghost" id="stripUndo">Undo last tap</button><button class="btn ghost" id="stripRestart">Start over</button></div>
+</div>
+<div id="stripResult"></div>
+</dialog>
+<dialog id="acctDlg" class="sheet" aria-labelledby="acctTitle">
+<div class="why-head"><div><div class="eyebrow">Free, nothing to pay</div><h2 id="acctTitle">Your account</h2></div>
+<button class="why-close" id="acctClose" aria-label="Close">&times;</button></div>
+<div id="acctCard">
+<div id="acctOut" hidden>
+<p class="small dim" style="margin:4px 0 10px">Saves your garden, diary and settings so they follow you to any phone or computer, and lets you post in the community. No email to confirm.</p>
+<div class="form-grid acct-form">
+<label>Email<input type="email" id="acctEmail" autocomplete="username" inputmode="email" maxlength="200"></label>
+<label>Password<input type="password" id="acctPw" autocomplete="current-password" minlength="8" maxlength="200"></label>
+</div>
+<div class="btn-row"><button class="btn" id="acctLogin">Sign in</button><button class="btn ghost" id="acctSignup">Create account</button></div>
+<details class="acct-forgot" id="acctForgot">
+<summary>Forgot your password?</summary>
+<p class="small dim">Use the recovery code you were shown when you made the account.</p>
+<div class="form-grid acct-form">
+<label>Recovery code<input id="acctCode" autocomplete="off" autocapitalize="characters" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="40"></label>
+<label>New password<input type="password" id="acctNewPw" autocomplete="new-password" minlength="8" maxlength="200"></label>
+</div>
+<button class="btn ghost" id="acctRecover">Reset password</button>
+</details>
+</div>
+<div id="acctIn" hidden>
+<p class="acct-who">Signed in as <strong id="acctWho" translate="no"></strong></p>
+<p class="small dim" id="acctStatus" role="status"></p>
+<div class="btn-row"><button class="btn ghost" id="acctSync">Sync now</button><button class="btn ghost" id="acctLogout">Sign out</button></div>
+<details class="acct-forgot">
+<summary>Delete my account</summary>
+<p class="small dim">Removes your account, your posts and everything saved in it from the server. What's on this phone stays.</p>
+<div class="form-grid acct-form"><label>Password<input type="password" id="acctDelPw" autocomplete="current-password" maxlength="200"></label></div>
+<button class="btn danger" id="acctDelete">Delete account</button>
+</details>
+</div>
+<div class="acct-code" id="acctCodeBox" hidden>
+<strong>Your recovery code</strong>
+<p class="num code" id="acctCodeShown" translate="no"></p>
+<p class="small">It's the only way back in if you forget your password. Write it down or screenshot it now; it won't be shown again.</p>
+<div class="btn-row"><button class="btn ghost" id="acctCodeCopy">Copy</button><button class="btn" id="acctCodeDone">I've saved it</button></div>
+</div>
+<div class="acct-choice" id="acctChoice" hidden>
+<strong>This phone and your account both have garden data.</strong>
+<p class="small">Which one should you keep? Diary entries from both are always kept.</p>
+<div class="btn-row"><button class="btn" data-choice="account">Use my account's</button><button class="btn ghost" data-choice="phone">Use this phone's</button></div>
+</div>
+<p class="small acct-err" id="acctMsg" role="alert"></p>
+<p class="small dim acct-mode"><button class="link" data-mode-switch>Switch mode</button></p>
+</div>
+</dialog>
+<dialog id="modeDlg" class="sheet mode-dlg" aria-labelledby="modeTitle">
+<div class="why-head"><div><div class="eyebrow">Switch any time, nothing is lost</div><h2 id="modeTitle">How do you grow?</h2></div>
+<button class="why-close" id="modeClose" aria-label="Close">&times;</button></div>
+<div class="mode-pick">
+<button class="mode-opt" data-mode="beginner"><span class="mode-ico" aria-hidden="true">🌱</span><strong>Starter</strong><span class="small">Brand new to growing. Just today's jobs, your plants, a short lesson a day and someone to ask.</span></button>
+<button class="mode-opt" data-mode="backyard"><span class="mode-ico" aria-hidden="true">🏡</span><strong>Backyard</strong><span class="small">A home garden. Soil, what pays, when to plant, water, pests, the yard map and good-year/bad-year odds.</span></button>
+<button class="mode-opt" data-mode="farm"><span class="mode-ico" aria-hidden="true">🚜</span><strong>Farm &amp; Market</strong><span class="small">Growing to sell. Everything, plus margins, break-even prices, scale to acres and spreadsheets.</span></button>
+</div>
+</dialog>
+<dialog id="setupDlg" class="sheet setup-dlg" aria-labelledby="setupTitle">
+<div class="setup-dots" id="setupDots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div class="setup-step" data-step="1">
+<h2 id="setupTitle">Where is your garden?</h2>
+<p class="setup-where" id="setupWhere">Finding you…</p>
+<div class="btn-row"><button class="btn" id="setupHere">Yes, that's right</button><button class="btn ghost" id="setupGps">Use my phone's location</button></div>
+<div class="setup-addr"><label class="small dim">Or type a town, ZIP or address<input id="setupAddr" autocomplete="postal-code"></label><button class="btn ghost" id="setupAddrGo">Find it</button></div>
+</div>
+<div class="setup-step" data-step="2" hidden>
+<h2>How much space do you have?</h2>
+<div class="pick3" data-pick="space">
+<button data-v="pots"><span class="pico" aria-hidden="true">🪴</span><strong>A few pots</strong><span class="small">Balcony, patio or steps</span></button>
+<button data-v="bed"><span class="pico" aria-hidden="true">🟫</span><strong>One garden bed</strong><span class="small">About 4 by 8 feet</span></button>
+<button data-v="yard"><span class="pico" aria-hidden="true">🏡</span><strong>A big patch</strong><span class="small">Part of a yard</span></button>
+</div>
+</div>
+<div class="setup-step" data-step="3" hidden>
+<h2>How much sun does it get?</h2>
+<div class="pick3" data-pick="sun">
+<button data-v="full"><span class="pico" aria-hidden="true">☀️</span><strong>Sunny all day</strong><span class="small">8 hours or more</span></button>
+<button data-v="half"><span class="pico" aria-hidden="true">⛅</span><strong>Sunny half the day</strong><span class="small">Morning or afternoon</span></button>
+<button data-v="little"><span class="pico" aria-hidden="true">🌥️</span><strong>Not much sun</strong><span class="small">Under trees or buildings</span></button>
+</div>
+</div>
+<div class="setup-step" data-step="4" hidden>
+<h2>Your starter garden</h2>
+<p class="small dim">Easy plants that suit your sun and season. Remove any you don't want.</p>
+<div class="b-plants" id="setupPicks"></div>
+<div class="btn-row"><button class="btn" id="setupGo">Start my garden</button></div>
+</div>
+<div class="btn-row setup-nav"><button class="btn ghost" id="setupBack" hidden>Back</button><button class="link" id="setupSkip">Skip for now</button></div>
+</dialog>
+<dialog id="plantDlg" class="sheet" aria-labelledby="plantTitle">
+<div class="why-head"><div><div class="eyebrow" id="plantEasy"></div><h2 id="plantTitle"></h2><div class="small" id="plantStatus"></div></div>
+<button class="why-close" id="plantClose" aria-label="Close">&times;</button></div>
+<div id="plantBody"></div>
+</dialog>
+<dialog id="addPlantDlg" class="sheet" aria-labelledby="addPlantTitle">
+<div class="why-head"><div><h2 id="addPlantTitle">Add a plant</h2><div class="small dim">Easy ones first. Green means you can plant it now.</div></div>
+<button class="why-close" id="addPlantClose" aria-label="Close">&times;</button></div>
+<div class="b-plants picker" id="addPlantList"></div>
+</dialog>
+<dialog id="lessonsDlg" class="sheet" aria-labelledby="lessonsTitle">
+<div class="why-head"><div><h2 id="lessonsTitle">Your lessons</h2><div class="small dim">A new one opens each day.</div></div>
+<button class="why-close" id="lessonsClose" aria-label="Close">&times;</button></div>
+<ol class="lesson-list" id="lessonList"></ol>
+</dialog>
+<div class="welcome" id="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="wTitle">
+<div class="w-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="w-top">
+<div class="w-brand"><img src="icons/icon.svg" alt=""><span>Eco <b>Analytics</b> <em>AI</em></span></div>
+<button class="w-skip" id="wSkip">Skip</button>
+</div>
+<div class="w-stage" id="wStage" aria-live="polite">
+<div class="w-scene" id="wScene" aria-hidden="true"></div>
+<div class="w-copy">
+<div class="w-step" id="wStep"></div>
+<h2 id="wTitle"></h2>
+<p id="wText"></p>
+<div class="w-extra" id="wExtra"></div>
+</div>
+</div>
+<div class="w-foot">
+<div class="w-dots" id="wDots" aria-hidden="true"></div>
+<div class="w-nav"><button class="btn ghost" id="wBack">Back</button><button class="btn" id="wNext">Next</button></div>
+</div>
+</div>
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+<div class="tour-card">
+<div class="eyebrow" id="tourStep"></div>
+<h2 id="tourTitle"></h2>
+<div id="tourBody" class="small"></div>
+<div class="tour-dots" id="tourDots"></div>
+<div class="tour-actions"><button class="btn ghost" id="tourSkip">Skip</button><button class="btn" id="tourNext">Next</button></div>
+</div>
+</div>
+<button class="ai-fab" id="aiFab" aria-label="Ask Eco AI" aria-haspopup="dialog"><span class="ai-orb" aria-hidden="true"><i></i></span><span class="ai-fab-lbl">Ask Eco AI</span></button>
+<dialog id="chatDlg" class="sheet chat-dlg" aria-label="Eco AI">
+<button class="why-close chat-x" id="chatDlgX" aria-label="Close">&times;</button>
+<div id="chatSlot"></div>
+</dialog>
+<dialog id="fruitDlg" class="sheet fruit-dlg" aria-labelledby="fruitTitle">
+<div class="why-head"><div><div class="eyebrow">Fruit Finder <span class="ai-free">⚡ instant · no AI request</span></div><h2 id="fruitTitle">Fruit for your garden</h2><div class="small dim" id="fruitSub"></div></div>
+<button class="why-close" id="fruitClose" aria-label="Close">&times;</button></div>
+<div class="fruit-controls">
+<div class="seg" id="fruitSpace" role="radiogroup" aria-label="Space"><button role="radio" data-v="pots">🪴 Pots</button><button role="radio" data-v="bed">🟫 A bed</button><button role="radio" data-v="yard">🏡 Yard</button></div>
+<div class="seg" id="fruitSun" role="radiogroup" aria-label="Sun"><button role="radio" data-v="8">☀️ Full sun</button><button role="radio" data-v="5">⛅ Half</button><button role="radio" data-v="3">🌥️ Shady</button></div>
+</div>
+<div class="fruit-list" id="fruitList"></div>
+<p class="small dim" id="fruitNote">Typical home-garden figures from US extension guides, rounded. Value is at store prices once plants are mature.</p>
+</dialog>
+<dialog id="shopDlg" class="sheet shop-dlg" aria-labelledby="shopTitle">
+<div class="why-head"><div><div class="eyebrow">Your prices</div><h2 id="shopTitle">Where do you usually shop?</h2>
+<div class="small dim">We use that store's own prices where it publishes them, and ask you for the rest.</div></div>
+<button class="why-close" id="shopClose" aria-label="Close">&times;</button></div>
+<div class="shop-current" id="shopCurrent" hidden><span aria-hidden="true">🛒</span><strong id="shopCurrentName"></strong><button class="btn ghost sm" id="shopChange">Change store</button></div>
+<div class="shop-grid" id="shopGrid" role="radiogroup" aria-label="Store"></div>
+<div id="shopBody"></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="vendor/lp-solver.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
